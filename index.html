@@ -1,0 +1,1665 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>우리반 관계읽기</title>
+    <link href="https://fonts.googleapis.com/css2?family=Nanum+Round+Square:wght@400;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #5B6CF7;
+            --primary-light: #EEF0FF;
+            --accent: #FF7043;
+            --yellow: #FFD740;
+            --bg: #F4F6FF;
+            --card: #ffffff;
+            --text: #2D2F5B;
+            --muted: #8589B0;
+            --border: #E0E4FF;
+            --danger: #FF5252;
+            --success: #26C6A6;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Nanum Round Square', 'Malgun Gothic', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+        .app-header { background: var(--primary); padding: 16px 20px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 12px rgba(91,108,247,.3); }
+        .app-header .logo { font-size: 22px; font-weight: 800; color: #fff; letter-spacing: -0.5px; }
+        .app-header .logo span { color: var(--yellow); }
+        .app-header .sub { font-size: 12px; color: rgba(255,255,255,.7); margin-top: 2px; }
+
+        .screen { display: none; padding: 20px; max-width: 600px; margin: 0 auto; }
+        .screen.active { display: block; }
+
+        .card { background: var(--card); border-radius: 18px; padding: 22px; margin-bottom: 16px; box-shadow: 0 2px 16px rgba(91,108,247,.08); border: 1.5px solid var(--border); }
+        .card-title { font-size: 18px; font-weight: 800; color: var(--text); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+
+        .btn { width: 100%; padding: 14px; border: none; border-radius: 12px; font-family: inherit; font-size: 15px; font-weight: 800; cursor: pointer; transition: all .15s; display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 10px; }
+        .btn-primary { background: var(--primary); color: #fff; box-shadow: 0 4px 14px rgba(91,108,247,.3); }
+        .btn-primary:hover { filter: brightness(1.08); transform: translateY(-1px); }
+        .btn-secondary { background: var(--primary-light); color: var(--primary); }
+        .btn-accent { background: var(--accent); color: #fff; box-shadow: 0 4px 14px rgba(255,112,67,.3); }
+        .btn-danger { background: var(--danger); color: #fff; }
+        .btn-gray { background: #ECEFF1; color: #607D8B; }
+        .btn-sm { width: auto; padding: 8px 16px; font-size: 13px; margin: 0; border-radius: 8px; }
+
+        .input-wrap { margin-bottom: 14px; }
+        .input-wrap label { display: block; font-size: 13px; font-weight: 700; color: var(--muted); margin-bottom: 6px; }
+        input[type="text"], input[type="password"], select { width: 100%; padding: 12px 14px; border: 1.5px solid var(--border); border-radius: 10px; font-family: inherit; font-size: 15px; color: var(--text); background: var(--bg); outline: none; transition: border .15s; }
+        input:focus, select:focus { border-color: var(--primary); background: #fff; }
+
+        .hero { text-align: center; padding: 30px 0 20px; }
+        .hero .emoji { font-size: 64px; margin-bottom: 12px; display: block; }
+        .hero h1 { font-size: 26px; font-weight: 800; line-height: 1.3; }
+        .hero p { color: var(--muted); font-size: 14px; margin-top: 8px; }
+        .role-btn { border-radius: 18px; padding: 20px; display: flex; align-items: center; gap: 16px; cursor: pointer; transition: all .15s; border: 2.5px solid var(--border); background: var(--card); margin-bottom: 12px; box-shadow: 0 2px 12px rgba(0,0,0,.04); }
+        .role-btn:hover { border-color: var(--primary); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(91,108,247,.12); }
+        .role-btn .r-icon { font-size: 40px; flex-shrink: 0; }
+        .role-btn .r-text h3 { font-size: 17px; font-weight: 800; }
+        .role-btn .r-text p { font-size: 13px; color: var(--muted); margin-top: 3px; }
+
+        .q-progress { margin-bottom: 20px; }
+        .prog-text { font-size: 13px; color: var(--muted); margin-bottom: 6px; display: flex; justify-content: space-between; }
+        .prog-bar { height: 8px; background: var(--primary-light); border-radius: 99px; overflow: hidden; }
+        .prog-fill { height: 100%; background: var(--primary); border-radius: 99px; transition: width .3s; }
+        .q-label { font-size: 11px; font-weight: 800; color: var(--primary); background: var(--primary-light); padding: 4px 10px; border-radius: 99px; display: inline-block; margin-bottom: 10px; }
+        .q-text { font-size: 18px; font-weight: 800; line-height: 1.4; margin-bottom: 20px; }
+        .friend-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px; }
+        .friend-chip { padding: 12px 10px; border-radius: 12px; text-align: center; border: 2px solid var(--border); background: var(--bg); cursor: pointer; font-size: 15px; font-weight: 700; transition: all .12s; user-select: none; }
+        .friend-chip:hover { border-color: var(--primary); background: var(--primary-light); }
+        .friend-chip.selected { border-color: var(--primary); background: var(--primary); color: #fff; }
+        .selected-count { font-size: 13px; color: var(--muted); margin-bottom: 16px; text-align: center; }
+
+        .stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+        .stat-box { background: var(--primary-light); border-radius: 12px; padding: 14px; text-align: center; }
+        .stat-box .num { font-size: 26px; font-weight: 800; color: var(--primary); }
+        .stat-box .lbl { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+        .student-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+        .s-tag { padding: 6px 12px; border-radius: 99px; font-size: 13px; font-weight: 700; background: var(--primary-light); color: var(--primary); display: flex; align-items: center; gap: 6px; }
+        .s-tag .del { cursor: pointer; color: var(--danger); font-weight: 800; }
+
+        .result-table-wrap { overflow-x: auto; margin-top: 10px; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th { background: var(--primary); color: #fff; padding: 8px 10px; text-align: left; font-weight: 700; white-space: nowrap; }
+        td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+        tr:last-child td { border-bottom: none; }
+        tr:nth-child(even) td { background: var(--primary-light); }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 700; margin: 1px; }
+        .badge-blue { background: var(--primary-light); color: var(--primary); }
+
+        .alert { padding: 12px 16px; border-radius: 10px; font-size: 13px; margin-bottom: 12px; font-weight: 700; }
+        .alert-info { background: #E3F2FD; color: #1565C0; }
+        .alert-warn { background: #FFF8E1; color: #E65100; }
+        .alert-danger { background: #FFEBEE; color: #C62828; }
+
+        .done-wrap { text-align: center; padding: 40px 20px; }
+        .done-wrap .big-emoji { font-size: 72px; margin-bottom: 16px; display: block; }
+        .done-wrap h2 { font-size: 24px; font-weight: 800; }
+        .done-wrap p { color: var(--muted); margin-top: 8px; font-size: 15px; }
+
+        .divider { height: 1px; background: var(--border); margin: 16px 0; }
+        .back-btn { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 14px; font-weight: 700; cursor: pointer; margin-bottom: 16px; width: fit-content; }
+        .back-btn:hover { color: var(--primary); }
+
+        .tab-row { display: flex; gap: 8px; margin-bottom: 16px; overflow-x: auto; }
+        .tab { padding: 8px 16px; border-radius: 99px; font-size: 13px; font-weight: 800; cursor: pointer; white-space: nowrap; border: 2px solid var(--border); background: var(--card); color: var(--muted); }
+        .tab.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+        .list-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid var(--border); }
+        .list-item:last-child { border-bottom: none; }
+
+        .loading { text-align: center; padding: 30px; color: var(--muted); }
+        .watermark { position: fixed; bottom: 10px; right: 15px; font-size: 11px; color: #ccc; user-select: none; cursor: pointer; z-index: 1000; }
+
+        /* 서브탭 */
+        .sub-tab { padding:7px 14px; border-radius:99px; font-size:12px; font-weight:800; cursor:pointer;
+            white-space:nowrap; border:2px solid var(--border); background:var(--card); color:var(--muted); }
+        .sub-tab.active { background:var(--primary); color:#fff; border-color:var(--primary); }
+
+        /* 교우관계 유형 카드 */
+        .type-card { border-radius:14px; padding:16px; margin-bottom:12px; display:flex; gap:14px; align-items:flex-start; border:1.5px solid var(--border); background:var(--card); }
+        .type-icon { font-size:32px; flex-shrink:0; width:44px; text-align:center; }
+        .type-body h4 { font-size:14px; font-weight:800; margin-bottom:4px; }
+        .type-body p  { font-size:12px; color:var(--muted); line-height:1.5; margin-bottom:6px; }
+        .type-students { display:flex; flex-wrap:wrap; gap:5px; }
+        .type-chip { padding:3px 10px; border-radius:99px; font-size:12px; font-weight:700; }
+
+        /* 소시오그램 SVG */
+        .sg-node { cursor:pointer; }
+        .sg-node circle { transition:r .2s; }
+        .sg-label { font-size:11px; font-weight:700; pointer-events:none; }
+        .sg-arrow { marker-end:url(#arrow); }
+
+        /* 개인 분석 */
+        .radar-wrap { width:220px; height:220px; margin:0 auto 16px; }
+        .stat-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px; }
+        .stat-pill { background:var(--primary-light); border-radius:10px; padding:10px; text-align:center; }
+        .stat-pill .sp-val { font-size:22px; font-weight:800; color:var(--primary); }
+        .stat-pill .sp-lbl { font-size:11px; color:var(--muted); margin-top:2px; }
+        .qr-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+        .qr-card {
+            background: #fff; border: 1.5px solid var(--border); border-radius: 12px;
+            padding: 14px 10px; text-align: center;
+            display: flex; flex-direction: column; align-items: center; gap: 8px;
+        }
+        .qr-card .qr-no { font-size: 11px; color: var(--muted); font-weight: 700; }
+        .qr-card .qr-name { font-size: 15px; font-weight: 800; color: var(--text); }
+        .qr-card .qr-class { font-size: 10px; color: var(--muted); margin-top: -4px; }
+        .qr-card canvas, .qr-card img { width: 100px !important; height: 100px !important; }
+
+        @media print {
+            body * { visibility: hidden; }
+            #print-qr-area, #print-qr-area * { visibility: visible; }
+            #print-qr-area {
+                position: fixed; top: 0; left: 0; width: 100%;
+                display: grid !important;
+                grid-template-columns: repeat(4, 1fr);
+                gap: 8px; padding: 10mm;
+            }
+            .qr-card { page-break-inside: avoid; border: 1px solid #ccc; border-radius: 8px; padding: 10px 6px; }
+            .qr-card canvas, .qr-card img { width: 90px !important; height: 90px !important; }
+        }
+    </style>
+</head>
+<body>
+
+<header class="app-header">
+    <div class="logo">우리반 <span>관계읽기</span></div>
+    <div class="sub">AI기반 교우관계 가이드 서비스</div>
+</header>
+
+<!-- 홈 -->
+<div id="screen-home" class="screen active">
+    <div class="hero">
+        <span class="emoji">🏫</span>
+        <h1>우리 반 친구들과<br>어떻게 지내고 있나요?</h1>
+        <p>선생님과 학생 모두를 위한 교우관계 설문 서비스</p>
+    </div>
+    <div class="role-btn" data-action="goto" data-screen="screen-teacher-menu">
+        <div class="r-icon">👩‍🏫</div>
+        <div class="r-text"><h3>선생님이에요</h3><p>반 생성, 학생 관리, 결과 확인</p></div>
+    </div>
+    <div class="role-btn" data-action="goto" data-screen="screen-student-login">
+        <div class="r-icon">🎒</div>
+        <div class="r-text"><h3>학생이에요</h3><p>설문에 참여해요</p></div>
+    </div>
+</div>
+
+<!-- 선생님 메뉴 -->
+<div id="screen-teacher-menu" class="screen">
+    <div class="back-btn" data-action="goto" data-screen="screen-home">← 처음으로</div>
+    <div class="card">
+        <div class="card-title">👩‍🏫 선생님 메뉴</div>
+        <button class="btn btn-primary" data-action="goto" data-screen="screen-teacher-create">✨ 새 반 만들기</button>
+        <button class="btn btn-secondary" data-action="goto" data-screen="screen-teacher-login">🔑 내 반 관리하기</button>
+    </div>
+</div>
+
+<!-- 반 생성 -->
+<div id="screen-teacher-create" class="screen">
+    <div class="back-btn" data-action="goto" data-screen="screen-teacher-menu">← 뒤로</div>
+    <div class="card">
+        <div class="card-title">✨ 새 반 만들기</div>
+        <p style="font-size:12px; color:var(--danger); margin-bottom:14px;">※ 기기당 하루 5개 반까지 생성 가능합니다.</p>
+        <div class="input-wrap">
+            <label>반 이름 (학생 참여 코드로 사용됩니다)</label>
+            <input type="text" id="create-class-name" placeholder="예: 3학년2반">
+        </div>
+        <div class="input-wrap">
+            <label>학년군</label>
+            <select id="create-grade">
+                <option value="low">초등 저학년 (1~2학년)</option>
+                <option value="mid">초등 중학년 (3~4학년)</option>
+                <option value="high">초등 고학년 (5~6학년)</option>
+            </select>
+        </div>
+        <div class="input-wrap">
+            <label>관리자 비밀번호</label>
+            <input type="password" id="create-password" placeholder="비밀번호 설정">
+        </div>
+        <button class="btn btn-primary" data-action="createClass">반 생성하기 →</button>
+        <button class="btn btn-gray" data-action="goto" data-screen="screen-teacher-menu">취소</button>
+    </div>
+</div>
+
+<!-- 선생님 로그인 -->
+<div id="screen-teacher-login" class="screen">
+    <div class="back-btn" data-action="goto" data-screen="screen-teacher-menu">← 뒤로</div>
+    <div class="card">
+        <div class="card-title">🔑 내 반 관리하기</div>
+        <div class="input-wrap">
+            <label>반 이름</label>
+            <input type="text" id="login-class-name" placeholder="반 이름 입력">
+        </div>
+        <div class="input-wrap">
+            <label>비밀번호</label>
+            <input type="password" id="login-password" placeholder="비밀번호 입력">
+        </div>
+        <button class="btn btn-primary" data-action="teacherLogin">접속하기 →</button>
+        <button class="btn btn-gray" data-action="goto" data-screen="screen-teacher-menu">취소</button>
+    </div>
+</div>
+
+<!-- 교사 대시보드 -->
+<div id="screen-teacher-dashboard" class="screen">
+    <div class="back-btn" data-action="teacherLogout">← 로그아웃</div>
+    <div class="card">
+        <div class="card-title">📊 <span id="dash-class-name"></span></div>
+        <div class="stat-row">
+            <div class="stat-box"><div class="num" id="stat-students">0</div><div class="lbl">학생 수</div></div>
+            <div class="stat-box"><div class="num" id="stat-responses">0</div><div class="lbl">응답 수</div></div>
+            <div class="stat-box"><div class="num" id="stat-rate">0%</div><div class="lbl">응답률</div></div>
+        </div>
+
+        <!-- 설문 시작 + QR 배부 나란히 -->
+        <div style="display:flex; gap:10px; margin-bottom:4px;">
+            <button class="btn btn-accent" id="btn-toggle-survey" data-action="toggleSurvey" style="flex:1; margin-bottom:0;">설문 시작하기 ▶</button>
+            <button class="btn btn-qr" data-action="switchTab" data-tab="tab-qr"
+                style="flex:0 0 auto; width:auto; padding:14px 16px; margin-bottom:0;
+                       background:linear-gradient(135deg,#5B6CF7,#9B59B6); color:#fff;
+                       border-radius:12px; font-size:13px; font-weight:800;
+                       box-shadow:0 4px 14px rgba(91,108,247,.35); border:none; cursor:pointer;
+                       display:flex; flex-direction:column; align-items:center; gap:2px; line-height:1.2;">
+                <span style="font-size:22px;">🔲</span>
+                <span>QR 배부</span>
+            </button>
+        </div>
+
+        <!-- QR 강조 배너 -->
+        <div id="qr-promo-banner" style="
+            background:linear-gradient(135deg,#EEF0FF 0%,#F3E8FF 100%);
+            border:1.5px solid #C4B5FD; border-radius:12px;
+            padding:12px 14px; margin-top:10px;
+            display:flex; align-items:center; gap:12px; cursor:pointer;"
+            data-action="switchTab" data-tab="tab-qr">
+            <span style="font-size:32px; flex-shrink:0;">🔲</span>
+            <div>
+                <div style="font-size:13px; font-weight:800; color:#4A1D96;">학생별 QR코드 인쇄 배부</div>
+                <div style="font-size:12px; color:#6B21A8; margin-top:2px; line-height:1.5;">
+                    학생 이름이 담긴 개인 QR코드를 출력해 나눠주세요.<br>
+                    스마트폰으로 찍으면 <strong>설문에 바로 연결</strong>됩니다. →
+                </div>
+            </div>
+        </div>
+
+        <div style="display:flex; gap:8px; margin-top:10px;">
+            <button class="btn btn-secondary btn-sm" data-action="copyInviteCode" style="flex:1; margin-bottom:0">📋 참여 코드 복사</button>
+            <button class="btn btn-gray btn-sm" data-action="refreshDashboard" style="flex:1; margin-bottom:0">🔄 새로고침</button>
+        </div>
+    </div>
+
+    <div class="tab-row">
+        <div class="tab active" data-action="switchTab" data-tab="tab-students">학생 명단</div>
+        <div class="tab" data-action="switchTab" data-tab="tab-results">응답 결과</div>
+        <div class="tab" data-action="switchTab" data-tab="tab-qr">🔲 QR 배부</div>
+        <div class="tab" data-action="switchTab" data-tab="tab-settings">설정</div>
+    </div>
+
+    <div id="tab-students" class="tab-content">
+        <div class="card">
+            <div class="card-title">👥 학생 명단 관리</div>
+            <div class="alert alert-info">설문에서 친구 이름으로 표시됩니다. 직접 입력하거나 엑셀 파일로 업로드하세요.</div>
+
+            <!-- 방법 1: 직접 입력 -->
+            <div style="font-size:13px; font-weight:800; color:var(--muted); margin-bottom:8px;">① 직접 입력</div>
+            <div style="display:flex; gap:8px; margin-bottom:6px; align-items:center;">
+                <input type="number" id="new-student-no" placeholder="번호" min="1" max="99"
+                    style="width:70px; flex-shrink:0; padding:10px 8px; text-align:center;">
+                <input type="text" id="new-student-name" placeholder="이름" style="flex:1">
+                <button class="btn btn-primary btn-sm" data-action="addStudent" style="flex-shrink:0">추가</button>
+            </div>
+
+            <!-- 방법 2: 엑셀 업로드 -->
+            <div style="font-size:13px; font-weight:800; color:var(--muted); margin:14px 0 8px;">② 엑셀 파일 업로드</div>
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:6px;">
+                <button class="btn btn-secondary btn-sm" data-action="downloadTemplate" style="flex:1; min-width:140px">
+                    📥 양식 다운로드
+                </button>
+                <label style="flex:1; min-width:140px; display:flex; align-items:center; justify-content:center;
+                    gap:6px; padding:8px 16px; border-radius:8px; background:var(--primary-light);
+                    color:var(--primary); font-size:13px; font-weight:800; cursor:pointer; border:none;">
+                    📤 파일 업로드
+                    <input type="file" id="excel-upload" accept=".xlsx,.xls" style="display:none">
+                </label>
+            </div>
+            <div id="upload-status" style="font-size:12px; color:var(--muted); margin-bottom:10px;"></div>
+
+            <!-- 명단 -->
+            <div class="divider"></div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <span style="font-size:13px; font-weight:800; color:var(--text)">등록된 학생
+                    <span id="student-count-badge" style="color:var(--primary)"></span>
+                </span>
+                <button class="btn btn-danger btn-sm" data-action="clearAllStudents"
+                    style="font-size:12px; padding:5px 12px">전체 삭제</button>
+            </div>
+            <div class="student-tags" id="student-list-tags"></div>
+        </div>
+    </div>
+
+    <div id="tab-results" class="tab-content" style="display:none">
+        <!-- 결과 서브탭 -->
+        <div style="display:flex; gap:8px; margin-bottom:14px; overflow-x:auto;">
+            <div class="sub-tab active" data-action="switchSubTab" data-subtab="subtab-types">📊 교우관계 유형</div>
+            <div class="sub-tab" data-action="switchSubTab" data-subtab="subtab-graph">🕸️ 소시오그램</div>
+            <div class="sub-tab" data-action="switchSubTab" data-subtab="subtab-individual">👤 개인별 분석</div>
+        </div>
+
+        <!-- 서브탭1: 교우관계 유형 -->
+        <div id="subtab-types" class="subtab-content">
+            <div class="card">
+                <div class="card-title">📊 학급 교우관계 유형 분석</div>
+                <div id="types-area"><div class="loading">분석 중...</div></div>
+            </div>
+        </div>
+
+        <!-- 서브탭2: 소시오그램 그래프 -->
+        <div id="subtab-graph" class="subtab-content" style="display:none">
+            <div class="card">
+                <div class="card-title">🕸️ 전체 교우관계 그래프</div>
+                <div class="alert alert-info" style="font-size:12px;">
+                    원 크기 = 선택받은 횟수 · 원 색상 진할수록 = 중간다리 역할 큼 · 화살표 = 선택 방향
+                </div>
+                <div id="graph-area" style="width:100%; height:420px; position:relative; background:#F4F6FF; border-radius:12px; overflow:hidden;"></div>
+                <div id="graph-legend" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; font-size:12px;"></div>
+            </div>
+        </div>
+
+        <!-- 서브탭3: 개인별 분석 -->
+        <div id="subtab-individual" class="subtab-content" style="display:none">
+            <div class="card">
+                <div class="card-title">👤 학생 개인별 분석</div>
+                <div class="input-wrap" style="margin-bottom:12px;">
+                    <label>학생 선택</label>
+                    <select id="individual-select"></select>
+                </div>
+                <div id="individual-area"><div class="loading">학생을 선택하세요.</div></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="tab-qr" class="tab-content" style="display:none">
+        <div class="card">
+            <div style="background:linear-gradient(135deg,#5B6CF7,#9B59B6); border-radius:14px;
+                padding:20px; margin-bottom:16px; color:#fff; text-align:center;">
+                <div style="font-size:40px; margin-bottom:8px;">🔲</div>
+                <div style="font-size:18px; font-weight:800; margin-bottom:6px;">학생별 QR코드 인쇄 배부</div>
+                <div style="font-size:13px; opacity:.9; line-height:1.6;">
+                    학생 이름이 담긴 개인 QR코드를 출력해서 나눠주세요.<br>
+                    스마트폰 카메라로 찍으면 <strong>설문 화면에 이름이 자동 입력</strong>됩니다.
+                </div>
+            </div>
+            <div id="qr-url-info" class="alert alert-warn" style="word-break:break-all; font-size:12px; display:none;"></div>
+            <div style="display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;">
+                <button class="btn btn-primary btn-sm" data-action="printAllQR" style="flex:1; min-width:140px; font-size:14px; padding:12px;">🖨️ 전체 인쇄</button>
+                <button class="btn btn-secondary btn-sm" data-action="generateQR" style="flex:1; min-width:140px; font-size:14px; padding:12px;">🔄 QR 생성/새로고침</button>
+            </div>
+            <div id="qr-grid"></div>
+        </div>
+    </div>
+
+    <div id="tab-settings" class="tab-content" style="display:none">
+        <div class="card">
+            <div class="card-title">⚙️ 설정</div>
+            <div class="input-wrap">
+                <label>비밀번호 변경</label>
+                <input type="password" id="new-password" placeholder="새 비밀번호">
+            </div>
+            <button class="btn btn-secondary btn-sm" data-action="changePassword" style="margin-bottom:12px">변경하기</button>
+            <div class="divider"></div>
+            <button class="btn btn-danger" data-action="deleteClass">🗑️ 반 삭제하기</button>
+        </div>
+    </div>
+</div>
+
+<!-- 학생 입장 -->
+<div id="screen-student-login" class="screen">
+    <div class="back-btn" data-action="goto" data-screen="screen-home">← 처음으로</div>
+    <div class="card">
+        <div class="card-title">🎒 설문 참여하기</div>
+        <div class="alert alert-info">선생님께 받은 반 코드를 입력해 주세요.</div>
+        <div class="input-wrap">
+            <label>반 코드 (반 이름)</label>
+            <input type="text" id="student-class-code" placeholder="예: 3학년2반">
+        </div>
+        <div class="input-wrap">
+            <label>내 이름</label>
+            <input type="text" id="student-name" placeholder="본인 이름 입력">
+        </div>
+        <button class="btn btn-accent" data-action="studentJoin">설문 시작하기 →</button>
+        <button class="btn btn-gray" data-action="goto" data-screen="screen-home">취소</button>
+    </div>
+</div>
+
+<!-- 학생 설문 -->
+<div id="screen-survey" class="screen">
+    <div class="q-progress">
+        <div class="prog-text">
+            <span id="q-current-label"></span>
+            <span id="q-count-label"></span>
+        </div>
+        <div class="prog-bar"><div class="prog-fill" id="prog-fill"></div></div>
+    </div>
+    <div class="card">
+        <div class="q-label" id="q-label">질문 1</div>
+        <div class="q-text" id="q-text">질문 내용</div>
+        <div class="selected-count" id="sel-count-text">친구를 <strong>1~3명</strong> 선택해 주세요</div>
+        <div class="friend-list" id="friend-list"></div>
+        <button class="btn btn-primary" data-action="nextQuestion">다음 →</button>
+        <button class="btn btn-gray" data-action="skipQuestion">건너뛰기</button>
+    </div>
+</div>
+
+<!-- 완료 -->
+<div id="screen-done" class="screen">
+    <div class="done-wrap">
+        <span class="big-emoji">🎉</span>
+        <h2>설문 완료!</h2>
+        <p>소중한 응답 감사해요.<br>선생님이 결과를 확인하실 거예요.</p>
+        <div style="height:20px;"></div>
+        <button class="btn btn-primary" data-action="goto" data-screen="screen-home">처음으로</button>
+    </div>
+</div>
+
+<!-- 총괄관리자 -->
+<div id="screen-superadmin" class="screen">
+    <div class="card">
+        <div class="card-title" style="color:var(--danger)">⚠️ 총괄 관리자</div>
+        <div id="superadmin-list" style="max-height:400px; overflow-y:auto;"></div>
+        <button class="btn btn-gray" data-action="goto" data-screen="screen-home" style="margin-top:12px">닫기</button>
+    </div>
+</div>
+
+<div class="watermark" id="easter-egg-btn">만든이 2026 최창훈</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+import { getFirestore, doc, setDoc, getDoc, updateDoc, deleteDoc,
+         collection, getDocs } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+const firebaseConfig = {
+    apiKey: "AIzaSyDveZo-Qbztbmnc-kR5NGFvBuCddeOlQpY",
+    authDomain: "sociogram-37d65.firebaseapp.com",
+    projectId: "sociogram-37d65",
+    storageBucket: "sociogram-37d65.firebasestorage.app",
+    messagingSenderId: "486718410053",
+    appId: "1:486718410053:web:2a03415c209ad47d65422c",
+    measurementId: "G-6H19PED7GC"
+};
+/*
+[권장 Firestore 보안 규칙]
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /classes/{classId} {
+      allow read, write: if true;
+      match /responses/{document=**} {
+        allow read, write: if true;
+      }
+    }
+  }
+}
+*/
+let app, db;
+try {
+    app = initializeApp(firebaseConfig);
+    db = getFirestore(app);
+} catch (e) {
+    console.error('Firebase 초기화 실패:', e);
+    document.body.innerHTML = '<div style="padding:40px;text-align:center;font-family:sans-serif;">' +
+        '<h2 style="color:#FF5252">🚨 Firebase 연결 오류</h2>' +
+        '<p style="margin-top:12px;color:#666">Firebase 설정을 확인해 주세요.<br>' + e.message + '</p></div>';
+}
+
+// ─── 설문 문항 ──────────────────────────────────────────
+const QUESTIONS = {
+    low: [
+        "쉬는 시간에 같이 놀고 싶은 친구는 누구인가요?",
+        "모둠 활동을 함께 하고 싶은 친구는 누구인가요?",
+        "내 이야기를 잘 들어줄 것 같은 친구는 누구인가요?",
+        "어려운 일이 있을 때 도와달라고 말하고 싶은 친구는 누구인가요?",
+        "점심시간에 옆에 앉고 싶은 친구는 누구인가요?",
+        "운동장에서 함께 뛰어놀고 싶은 친구는 누구인가요?",
+        "발표를 같이 준비하고 싶은 친구는 누구인가요?",
+        "장난감이나 준비물을 잘 나눠줄 것 같은 친구는 누구인가요?",
+        "친절하다고 생각하는 친구는 누구인가요?",
+        "우리 반에서 가장 함께 있으면 즐거운 친구는 누구인가요?"
+    ],
+    mid: [
+        "모둠 과제를 함께 하면 잘할 것 같은 친구는 누구인가요?",
+        "고민이 있을 때 이야기하고 싶은 친구는 누구인가요?",
+        "체육 활동을 함께 하고 싶은 친구는 누구인가요?",
+        "여행이나 현장체험학습에서 같은 조가 되고 싶은 친구는 누구인가요?",
+        "책임감이 있다고 생각하는 친구는 누구인가요?",
+        "친구들에게 인기가 많다고 생각하는 친구는 누구인가요?",
+        "다른 친구를 잘 도와주는 친구는 누구인가요?",
+        "내가 배우고 싶은 점이 있는 친구는 누구인가요?",
+        "새 친구가 오면 가장 잘 챙겨줄 것 같은 친구는 누구인가요?",
+        "앞으로 더 친해지고 싶은 친구는 누구인가요?"
+    ],
+    high: [
+        "중요한 모둠 활동에서 함께 팀이 되고 싶은 친구는 누구인가요?",
+        "비밀이나 고민을 믿고 이야기할 수 있는 친구는 누구인가요?",
+        "갈등이 생겼을 때 중재를 잘할 것 같은 친구는 누구인가요?",
+        "친구들 사이에서 리더 역할을 잘하는 친구는 누구인가요?",
+        "공부할 때 서로 도움을 주고받고 싶은 친구는 누구인가요?",
+        "배려심이 깊다고 생각하는 친구는 누구인가요?",
+        "학교 행사나 프로젝트를 함께 준비하고 싶은 친구는 누구인가요?",
+        "힘들 때 위로가 되어 줄 것 같은 친구는 누구인가요?",
+        "친구들에게 좋은 영향을 주는 친구는 누구인가요?",
+        "졸업 후에도 계속 친하게 지내고 싶은 친구는 누구인가요?"
+    ]
+};
+const GRADE_LABEL = { low: '저학년(1~2)', mid: '중학년(3~4)', high: '고학년(5~6)' };
+
+// ─── 전역 상태 ──────────────────────────────────────────
+let currentClass = "", currentUser = "", classData = null;
+let surveyAnswers = {}, currentQIndex = 0, surveyQuestions = [], classStudents = [];
+let isSubmitting = false;
+
+// ─── 화면 전환 ──────────────────────────────────────────
+function showScreen(id) {
+    if (!id) return;
+    const target = document.getElementById(id);
+    if (!target) { console.error('showScreen: 존재하지 않는 화면 id =', id); return; }
+    document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+    target.classList.add('active');
+    window.scrollTo(0, 0);
+}
+
+// ─── 탭 전환 ────────────────────────────────────────────
+function switchTab(tabId) {
+    ['tab-students', 'tab-results', 'tab-qr', 'tab-settings'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = (id === tabId) ? 'block' : 'none';
+    });
+    document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+    const activeTab = document.querySelector('[data-tab="' + tabId + '"]');
+    if (activeTab) activeTab.classList.add('active');
+    if (tabId === 'tab-results') loadResults();
+    if (tabId === 'tab-qr') generateQR();
+}
+
+// ─── 반 생성 ────────────────────────────────────────────
+async function createClass() {
+    const name = document.getElementById('create-class-name').value.trim();
+    const grade = document.getElementById('create-grade').value;
+    const pwd = document.getElementById('create-password').value;
+    if (!name || !pwd) return alert("반 이름과 비밀번호를 입력해주세요.");
+    const today = new Date().toISOString().split('T')[0];
+    const stored = localStorage.getItem('classCreatedDates');
+    const createdToday = stored ? JSON.parse(stored).filter(d => d === today).length : 0;
+    if (createdToday >= 5)
+        return alert("기기 제한: 하루에 최대 5개 반까지 생성할 수 있습니다.");
+    try {
+        const snap = await getDoc(doc(db, "classes", name));
+        if (snap.exists()) return alert("이미 존재하는 반 이름입니다.");
+        await setDoc(doc(db, "classes", name), {
+            password: pwd, grade, createdAt: new Date().toISOString(),
+            surveyOpen: false, students: []
+        });
+        const stored2 = localStorage.getItem('classCreatedDates');
+        const dateArr = stored2 ? JSON.parse(stored2) : [];
+        dateArr.push(today);
+        localStorage.setItem('classCreatedDates', JSON.stringify(dateArr));
+        alert("반 [" + name + "]이 생성되었습니다!\n학생들에게 반 이름(코드)을 알려주세요.");
+        document.getElementById('create-class-name').value = '';
+        document.getElementById('create-password').value = '';
+        showScreen('screen-teacher-menu');
+    } catch (e) { alert("생성 오류: " + e.message); }
+}
+
+// ─── 교사 로그인 ─────────────────────────────────────────
+async function teacherLogin() {
+    const name = document.getElementById('login-class-name').value.trim();
+    const pwd = document.getElementById('login-password').value;
+    try {
+        const snap = await getDoc(doc(db, "classes", name));
+        if (!snap.exists() || snap.data().password !== pwd)
+            return alert("반 이름 또는 비밀번호가 맞지 않습니다.");
+        currentClass = name;
+        classData = snap.data();
+        classStudents = normalizeStudents(classData.students || []);
+        loadDashboard();
+        showScreen('screen-teacher-dashboard');
+    } catch (e) { alert("오류: " + e.message); }
+}
+
+function teacherLogout() {
+    currentClass = ''; currentUser = ''; classData = null;
+    classStudents = []; surveyAnswers = {}; surveyQuestions = [];
+    showScreen('screen-home');
+}
+
+// ─── 대시보드 ───────────────────────────────────────────
+function loadDashboard() {
+    document.getElementById('dash-class-name').textContent = currentClass;
+    renderStudentTags();
+    updateStats();
+    updateSurveyBtn();
+}
+
+async function updateStats() {
+    document.getElementById('stat-students').textContent = classStudents.length;
+    try {
+        const resSnap = await getDocs(collection(db, "classes", currentClass, "responses"));
+        const cnt = resSnap.size;
+        document.getElementById('stat-responses').textContent = cnt;
+        document.getElementById('stat-rate').textContent = classStudents.length > 0
+            ? Math.round(cnt / classStudents.length * 100) + '%' : '0%';
+    } catch (e) {}
+}
+
+function updateSurveyBtn() {
+    const btn = document.getElementById('btn-toggle-survey');
+    const banner = document.getElementById('qr-promo-banner');
+    if (classData && classData.surveyOpen) {
+        btn.textContent = '설문 중지하기 ■';
+        btn.className = 'btn btn-danger';
+        if (banner) banner.style.background = 'linear-gradient(135deg,#EEF0FF 0%,#F3E8FF 100%)';
+    } else {
+        btn.textContent = '설문 시작하기 ▶';
+        btn.className = 'btn btn-accent';
+        if (banner) banner.style.background = 'linear-gradient(135deg,#EEF0FF 0%,#F3E8FF 100%)';
+    }
+    btn.dataset.action = 'toggleSurvey';
+}
+
+async function refreshDashboard() {
+    try {
+        const snap = await getDoc(doc(db, "classes", currentClass));
+        if (!snap.exists()) return alert("반 정보를 찾을 수 없습니다. 다시 로그인해 주세요.");
+        classData = snap.data();
+        classStudents = normalizeStudents(classData.students || []);
+        loadDashboard();
+        switchTab('tab-students');
+    } catch (e) { alert("새로고침 오류: " + e.message); }
+}
+
+// ─── 설문 시작/중지 ──────────────────────────────────────
+async function toggleSurvey() {
+    const newState = !(classData && classData.surveyOpen);
+    try {
+        await updateDoc(doc(db, "classes", currentClass), { surveyOpen: newState });
+        classData.surveyOpen = newState;
+        updateSurveyBtn();
+        alert(newState ? "설문이 시작되었습니다." : "설문이 중지되었습니다.");
+    } catch (e) { alert("설문 상태 변경 오류: " + e.message); }
+}
+
+// ─── 학생 명단 ───────────────────────────────────────────
+// classStudents 구조: [{no:1, name:'홍길동'}, ...]
+// 하위 호환: 기존 string 배열이면 자동 변환
+function normalizeStudents(arr) {
+    if (!arr || arr.length === 0) return [];
+    return arr.map((s, i) => {
+        if (typeof s === 'string') return { no: i + 1, name: s };
+        return s;
+    });
+}
+
+function renderStudentTags() {
+    const el = document.getElementById('student-list-tags');
+    const badge = document.getElementById('student-count-badge');
+    if (classStudents.length === 0) {
+        el.innerHTML = '<span style="color:var(--muted); font-size:13px;">등록된 학생이 없습니다.</span>';
+        if (badge) badge.textContent = '';
+        return;
+    }
+    if (badge) badge.textContent = '(' + classStudents.length + '명)';
+    // 번호순 정렬
+    const sorted = [...classStudents].sort((a, b) => (a.no || 0) - (b.no || 0));
+    el.innerHTML = sorted.map((s) => {
+        const origIdx = classStudents.findIndex(x => x.no === s.no && x.name === s.name);
+        return '<div class="s-tag">' +
+            '<span style="font-size:11px;opacity:.7;margin-right:2px;">' + s.no + '</span>' +
+            s.name +
+            ' <span class="del" data-action="removeStudent" data-index="' + origIdx + '">✕</span></div>';
+    }).join('');
+}
+
+async function addStudent() {
+    const no = parseInt(document.getElementById('new-student-no').value);
+    const name = document.getElementById('new-student-name').value.trim();
+    if (!name) return alert("이름을 입력해주세요.");
+    if (isNaN(no) || no < 1) return alert("번호를 입력해주세요.");
+    if (classStudents.find(s => s.name === name)) return alert("이미 등록된 이름입니다.");
+    if (classStudents.find(s => s.no === no)) return alert("이미 사용 중인 번호입니다.");
+    const entry = { no, name };
+    classStudents.push(entry);
+    try {
+        await updateDoc(doc(db, "classes", currentClass), { students: classStudents });
+        document.getElementById('new-student-no').value = '';
+        document.getElementById('new-student-name').value = '';
+        renderStudentTags();
+        updateStats();
+    } catch (e) {
+        classStudents.pop();
+        alert("학생 추가 오류: " + e.message);
+    }
+}
+
+async function removeStudent(idx) {
+    if (!confirm("'" + classStudents[idx].name + "' 학생을 삭제할까요?")) return;
+    const removed = classStudents.splice(idx, 1)[0];
+    try {
+        await updateDoc(doc(db, "classes", currentClass), { students: classStudents });
+        renderStudentTags();
+        updateStats();
+    } catch (e) {
+        classStudents.splice(idx, 0, removed);
+        alert("학생 삭제 오류: " + e.message);
+    }
+}
+
+async function clearAllStudents() {
+    if (classStudents.length === 0) return alert("등록된 학생이 없습니다.");
+    if (!confirm("전체 학생 명단을 삭제할까요?")) return;
+    const backup = [...classStudents];
+    classStudents.length = 0;
+    try {
+        await updateDoc(doc(db, "classes", currentClass), { students: [] });
+        renderStudentTags();
+        updateStats();
+    } catch (e) {
+        classStudents.push(...backup);
+        alert("삭제 오류: " + e.message);
+    }
+}
+
+// ─── 엑셀 양식 다운로드 (순수 JS, SheetJS 사용) ──────────
+function downloadTemplate() {
+    // CSV 방식으로 간단히 생성 후 xlsx처럼 보이게 — SheetJS 없이 처리
+    // BOM + UTF-8 CSV를 .xlsx 대신 .csv로 제공 (호환성 최고)
+    const rows = [['번호','이름','성별','메모']];
+    for (let i = 1; i <= 30; i++) rows.push([i, '', '', '']);
+    const csv = rows.map(r => r.join(',')).join('\r\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = '학생명단_양식.csv';
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+// ─── 엑셀/CSV 업로드 파싱 ────────────────────────────────
+function setupExcelUpload() {
+    const input = document.getElementById('excel-upload');
+    if (!input) return;
+    input.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const status = document.getElementById('upload-status');
+        status.textContent = '파일을 읽는 중...';
+        status.style.color = 'var(--muted)';
+
+        try {
+            let parsed = [];
+            if (file.name.endsWith('.csv')) {
+                parsed = await parseCSV(file);
+            } else {
+                parsed = await parseXLSX(file);
+            }
+
+            if (parsed.length === 0) {
+                status.textContent = '⚠️ 이름이 입력된 행이 없습니다.';
+                status.style.color = 'var(--danger)';
+                return;
+            }
+
+            // 기존 명단에 병합 (중복 이름/번호 제외)
+            let added = 0, skipped = 0;
+            for (const entry of parsed) {
+                const dupName = classStudents.find(s => s.name === entry.name);
+                const dupNo   = classStudents.find(s => s.no === entry.no);
+                if (dupName || dupNo) { skipped++; continue; }
+                classStudents.push(entry); added++;
+            }
+
+            await updateDoc(doc(db, "classes", currentClass), { students: classStudents });
+            renderStudentTags(); updateStats();
+            status.textContent = '✅ ' + added + '명 등록 완료' + (skipped > 0 ? ' (' + skipped + '명 중복 건너뜀)' : '');
+            status.style.color = 'var(--success)';
+        } catch (err) {
+            status.textContent = '❌ 오류: ' + err.message;
+            status.style.color = 'var(--danger)';
+        }
+        input.value = ''; // 재업로드 허용
+    });
+}
+
+// CSV 파싱
+function parseCSV(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const text = e.target.result.replace(/^\uFEFF/, ''); // BOM 제거
+                const lines = text.split(/\r?\n/).filter(l => l.trim());
+                const result = [];
+                for (let i = 1; i < lines.length; i++) { // 첫 행은 헤더
+                    const cols = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+                    const no = parseInt(cols[0]);
+                    const name = cols[1] || '';
+                    if (!name || isNaN(no)) continue;
+                    result.push({ no, name });
+                }
+                resolve(result);
+            } catch (err) { reject(err); }
+        };
+        reader.onerror = () => reject(new Error('파일 읽기 실패'));
+        reader.readAsText(file, 'UTF-8');
+    });
+}
+
+// XLSX 파싱 (SheetJS CDN 동적 로드)
+function parseXLSX(file) {
+    return new Promise((resolve, reject) => {
+        // SheetJS가 이미 로드되었으면 바로 사용
+        if (window.XLSX) { doParseXLSX(file, resolve, reject); return; }
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+        script.onload = () => doParseXLSX(file, resolve, reject);
+        script.onerror = () => reject(new Error('XLSX 라이브러리 로드 실패. .csv 파일을 사용해 주세요.'));
+        document.head.appendChild(script);
+    });
+}
+
+function doParseXLSX(file, resolve, reject) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const wb = window.XLSX.read(e.target.result, { type: 'array' });
+            const ws = wb.Sheets[wb.SheetNames[0]];
+            const rows = window.XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+            const result = [];
+            for (let i = 1; i < rows.length; i++) { // 첫 행은 헤더
+                const no = parseInt(rows[i][0]);
+                const name = String(rows[i][1] || '').trim();
+                if (!name || isNaN(no)) continue;
+                result.push({ no, name });
+            }
+            resolve(result);
+        } catch (err) { reject(err); }
+    };
+    reader.onerror = () => reject(new Error('파일 읽기 실패'));
+    reader.readAsArrayBuffer(file);
+}
+
+// ─── 초대 코드 ───────────────────────────────────────────
+async function copyInviteCode() {
+    try {
+        await navigator.clipboard.writeText(currentClass);
+        alert("참여 코드가 복사되었습니다.\n\n반 코드: " + currentClass + "\n\n학생들에게 이 코드를 알려주세요!");
+    } catch (e) { alert("반 코드: " + currentClass); }
+}
+
+// ─── 비밀번호 변경 ──────────────────────────────────────
+async function changePassword() {
+    const newPwd = document.getElementById('new-password').value;
+    if (!newPwd) return alert("새 비밀번호를 입력하세요.");
+    try {
+        await updateDoc(doc(db, "classes", currentClass), { password: newPwd });
+        classData.password = newPwd;
+        alert("비밀번호가 변경되었습니다.");
+        document.getElementById('new-password').value = '';
+    } catch (e) { alert("비밀번호 변경 오류: " + e.message); }
+}
+
+// ─── 반 삭제 ────────────────────────────────────────────
+async function deleteClass() {
+    if (!confirm("반 [" + currentClass + "]를 삭제하면 모든 데이터가 사라집니다. 삭제할까요?")) return;
+    await deleteDoc(doc(db, "classes", currentClass));
+    alert("삭제되었습니다.");
+    teacherLogout();
+}
+
+// ─── 결과 공용 상태 ──────────────────────────────────────
+let resultRows = [];      // [{name, q0:[...], q1:[...], ...}]
+let resultStudents = [];  // 명단 [{no,name}]
+let resultTally = {};     // {name: 선택받은 횟수}
+let resultLinks = [];     // [{from, to}]  (단방향)
+
+// ─── switchSubTab ─────────────────────────────────────────
+function switchSubTab(subId) {
+    ['subtab-types','subtab-graph','subtab-individual'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = id === subId ? 'block' : 'none';
+    });
+    document.querySelectorAll('.sub-tab').forEach(el => el.classList.remove('active'));
+    const activeEl = document.querySelector('[data-subtab="' + subId + '"]');
+    if (activeEl) activeEl.classList.add('active');
+
+    if (subId === 'subtab-graph')      renderGraph();
+    if (subId === 'subtab-individual') renderIndividualSelect();
+}
+
+// ─── 결과 로드 (공용 데이터 수집 후 유형 분석 먼저 표시) ─
+async function loadResults() {
+    // 서브탭 초기화
+    switchSubTab('subtab-types');
+    const typesEl = document.getElementById('types-area');
+    if (!currentClass || !classData) {
+        typesEl.innerHTML = '<div class="alert alert-warn">먼저 반에 로그인해 주세요.</div>';
+        return;
+    }
+    typesEl.innerHTML = '<div class="loading">데이터 수집 중...</div>';
+    try {
+        // 최신 명단
+        const classSnap = await getDoc(doc(db, "classes", currentClass));
+        if (!classSnap.exists()) { typesEl.innerHTML = '<div class="alert alert-danger">반 정보 없음</div>'; return; }
+        resultStudents = normalizeStudents(classSnap.data().students || []);
+
+        // 응답 수집
+        const resSnap = await getDocs(collection(db, "classes", currentClass, "responses"));
+        if (resSnap.empty) { typesEl.innerHTML = '<div class="alert alert-warn">아직 응답이 없습니다.</div>'; return; }
+
+        resultRows = [];
+        resSnap.forEach(d => resultRows.push({ name: d.id, ...d.data() }));
+
+        const qs = QUESTIONS[classData.grade];
+        const allNames = resultStudents.map(s => s.name);
+
+        // tally: 선택받은 횟수
+        resultTally = {};
+        allNames.forEach(n => resultTally[n] = 0);
+        // links: 방향 있는 선택 관계 (중복 제거)
+        resultLinks = [];
+        const linkSet = new Set();
+        resultRows.forEach(r => {
+            qs.forEach((q, i) => {
+                (r['q' + i] || []).forEach(target => {
+                    resultTally[target] = (resultTally[target] || 0) + 1;
+                    if (allNames.includes(r.name) && allNames.includes(target) && r.name !== target) {
+                        const key = r.name + '→' + target;
+                        if (!linkSet.has(key)) {
+                            linkSet.add(key);
+                            resultLinks.push({ from: r.name, to: target });
+                        }
+                    }
+                });
+            });
+        });
+
+        renderTypes(typesEl, allNames, qs);
+    } catch(e) { document.getElementById('types-area').innerHTML = '<div class="alert alert-danger">오류: ' + e.message + '</div>'; }
+}
+
+// ─── 교우관계 유형 판별 ───────────────────────────────────
+function classifyStudent(name, allNames) {
+    const sent     = resultLinks.filter(l => l.from === name).length;   // 내가 선택한 수
+    const received = resultLinks.filter(l => l.to   === name).length;   // 선택받은 수
+    const mutual   = allNames.filter(n =>
+        n !== name &&
+        resultLinks.some(l => l.from === name && l.to === n) &&
+        resultLinks.some(l => l.from === n    && l.to === name)
+    ).length;
+    // 중간다리 지수 (betweenness 근사: 내 이웃이 서로 아는 사람 수)
+    const neighbors = allNames.filter(n => resultLinks.some(l => l.from === name && l.to === n));
+    let bridge = 0;
+    neighbors.forEach(a => {
+        neighbors.forEach(b => {
+            if (a !== b && resultLinks.some(l => l.from === a && l.to === b)) bridge++;
+        });
+    });
+
+    if (received === 0 && sent === 0) return 'alone_forced';
+    if (received === 0 && sent > 0)  return 'one_way';
+    if (received >= 4)               return received >= 6 ? 'star' : 'popular';
+    if (mutual >= 1 && received <= 2 && sent <= 2) return 'buddy';
+    if (bridge >= 3 || neighbors.length >= 4)      return 'connector';
+    if (received > 0 && sent === 0)  return 'alone_voluntary';
+    return 'normal';
+}
+
+const TYPE_META = {
+    star:            { icon:'⭐', label:'인기스타형',  color:'#FFF3CD', text:'#856404', desc:'많은 친구들이 선택한 영향력 있는 학생입니다. 긍정적 영향력을 유지하도록 지도하세요.' },
+    connector:       { icon:'🌐', label:'마당발형',    color:'#D1ECF1', text:'#0C5460', desc:'친구들 사이 연결 역할이 큰 학생입니다. 학급 분위기 형성에 큰 기여를 합니다.' },
+    buddy:           { icon:'🤝', label:'단짝형',      color:'#D4EDDA', text:'#155724', desc:'소수와 깊은 관계를 맺는 유형입니다. 관계가 끊기면 고립될 수 있어 주의가 필요합니다.' },
+    popular:         { icon:'😊', label:'인기형',      color:'#E2D9F3', text:'#4A1D96', desc:'여러 친구로부터 선택받은 학생입니다.' },
+    one_way:         { icon:'➡️', label:'일방형',      color:'#FFF3CD', text:'#856404', desc:'본인은 선택하지만 선택받지 못한 유형입니다. 고립군이 될 위험이 있어 주의가 필요합니다.' },
+    alone_forced:    { icon:'⚠️', label:'고립형',      color:'#F8D7DA', text:'#721C24', desc:'선택을 주고받지 못한 학생입니다. 즉각적인 관심과 개입이 필요합니다.' },
+    alone_voluntary: { icon:'🌙', label:'자발적 홀로형', color:'#E2E3E5', text:'#383D41', desc:'선택은 받았으나 본인은 선택하지 않은 유형입니다. 개인 성향일 수 있으니 확인이 필요합니다.' },
+    normal:          { icon:'🙂', label:'보통형',      color:'#EEF0FF', text:'#2D2F5B', desc:'평균적인 교우관계를 유지하는 학생입니다.' }
+};
+
+function renderTypes(el, allNames, qs) {
+    // 유형별 분류
+    const groups = {};
+    Object.keys(TYPE_META).forEach(k => groups[k] = []);
+    allNames.forEach(name => {
+        const type = classifyStudent(name, allNames);
+        groups[type].push(name);
+    });
+
+    // 응답 통계
+    const total   = allNames.length;
+    const replied = resultRows.length;
+    const rate    = total > 0 ? Math.round(replied / total * 100) : 0;
+
+    let html = '';
+    // 통계 요약
+    html += '<div class="stat-row">' +
+        '<div class="stat-box"><div class="num">' + total + '</div><div class="lbl">전체 학생</div></div>' +
+        '<div class="stat-box"><div class="num">' + replied + '</div><div class="lbl">응답 수</div></div>' +
+        '<div class="stat-box"><div class="num">' + rate + '%</div><div class="lbl">응답률</div></div>' +
+        '</div>';
+
+    // 주의 필요 그룹 먼저
+    const ORDER = ['alone_forced','one_way','buddy','alone_voluntary','normal','popular','connector','star'];
+    ORDER.forEach(type => {
+        const students = groups[type];
+        if (students.length === 0) return;
+        const m = TYPE_META[type];
+        html += '<div class="type-card">' +
+            '<div class="type-icon">' + m.icon + '</div>' +
+            '<div class="type-body" style="flex:1">' +
+            '<h4 style="color:' + m.text + '">' + m.label + ' <span style="font-weight:400;font-size:12px;">(' + students.length + '명)</span></h4>' +
+            '<p>' + m.desc + '</p>' +
+            '<div class="type-students">' +
+            students.map(n => '<span class="type-chip" style="background:' + m.color + ';color:' + m.text + '">' + n + '</span>').join('') +
+            '</div></div></div>';
+    });
+
+    // TOP5
+    const top5 = Object.entries(resultTally).sort((a,b)=>b[1]-a[1]).slice(0,5);
+    if (top5.length > 0) {
+        html += '<div class="divider"></div><div style="font-weight:800;font-size:14px;margin-bottom:10px;">🏆 가장 많이 선택된 친구 TOP 5</div>';
+        top5.forEach(([name,cnt],i) => {
+            html += '<div class="list-item"><span>' + ['🥇','🥈','🥉','4️⃣','5️⃣'][i] + ' ' + name + '</span>' +
+                '<span class="badge badge-blue">' + cnt + '회</span></div>';
+        });
+    }
+    el.innerHTML = html;
+}
+
+// ─── 소시오그램 SVG 그래프 ────────────────────────────────
+function renderGraph() {
+    const el = document.getElementById('graph-area');
+    if (!el) return;
+    if (resultStudents.length === 0) { el.innerHTML = '<div class="loading">데이터가 없습니다.</div>'; return; }
+
+    const W = el.clientWidth || 360, H = 420;
+    const names = resultStudents.map(s => s.name);
+
+    // 원형 배치
+    const pos = {};
+    const cx = W/2, cy = H/2, r = Math.min(W, H) * 0.38;
+    names.forEach((n, i) => {
+        const angle = (2 * Math.PI * i / names.length) - Math.PI/2;
+        pos[n] = { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) };
+    });
+
+    // 노드 크기: 선택받은 횟수 기반
+    const maxTally = Math.max(1, ...names.map(n => resultTally[n] || 0));
+    const nodeR = n => 12 + ((resultTally[n] || 0) / maxTally) * 14;
+
+    // 중간다리 지수 (진하기)
+    const bridgeScore = {};
+    names.forEach(n => {
+        const nb = names.filter(m => resultLinks.some(l => l.from === n && l.to === m));
+        let sc = 0;
+        nb.forEach(a => nb.forEach(b => { if(a!==b && resultLinks.some(l=>l.from===a&&l.to===b)) sc++; }));
+        bridgeScore[n] = sc;
+    });
+    const maxBridge = Math.max(1, ...Object.values(bridgeScore));
+
+    // 색상 보간 (연보라 → 진보라)
+    const nodeColor = n => {
+        const t = (bridgeScore[n] || 0) / maxBridge;
+        const r2 = Math.round(91 + (45-91)*t);
+        const g2 = Math.round(108 + (29-108)*t);
+        const b2 = Math.round(247 + (150-247)*t);
+        return 'rgb(' + r2 + ',' + g2 + ',' + b2 + ')';
+    };
+
+    // 중복 링크 제거 (쌍방향은 양방향 화살표로)
+    const drawnPairs = new Set();
+    const edgeLines = [];
+    resultLinks.forEach(({from, to}) => {
+        const key  = [from,to].sort().join('|');
+        const back = resultLinks.some(l => l.from===to && l.to===from);
+        if (!drawnPairs.has(key)) {
+            drawnPairs.add(key);
+            edgeLines.push({ from, to, mutual: back });
+        }
+    });
+
+    let svg = '<svg width="' + W + '" height="' + H + '" xmlns="http://www.w3.org/2000/svg">' +
+        '<defs>' +
+        '<marker id="arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">' +
+        '<path d="M0,0 L0,6 L6,3 z" fill="#5B6CF7" opacity=".7"/></marker>' +
+        '<marker id="arrow-mutual" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">' +
+        '<path d="M0,0 L0,6 L6,3 z" fill="#26C6A6" opacity=".9"/></marker>' +
+        '</defs>';
+
+    // 엣지
+    edgeLines.forEach(({from, to, mutual}) => {
+        if (!pos[from] || !pos[to]) return;
+        const dx = pos[to].x - pos[from].x, dy = pos[to].y - pos[from].y;
+        const dist = Math.sqrt(dx*dx+dy*dy);
+        if (dist < 1) return; // 같은 위치면 건너뜀 (NaN 방지)
+        const color  = mutual ? '#26C6A6' : '#5B6CF7';
+        const opacity = mutual ? '0.7' : '0.4';
+        const marker = mutual ? 'url(#arrow-mutual)' : 'url(#arrow)';
+        const nr = nodeR(to);
+        const ex = pos[to].x - dx/dist*(nr+2), ey = pos[to].y - dy/dist*(nr+2);
+        const sx = pos[from].x + dx/dist*(nodeR(from)+2), sy = pos[from].y + dy/dist*(nodeR(from)+2);
+        svg += '<line x1="'+sx+'" y1="'+sy+'" x2="'+ex+'" y2="'+ey+'" stroke="'+color+'" stroke-width="1.5" opacity="'+opacity+'" marker-end="'+marker+'"/>';
+    });
+
+    // 노드
+    names.forEach(n => {
+        const {x,y} = pos[n];
+        const rad = nodeR(n);
+        const fill = nodeColor(n);
+        svg += '<circle cx="'+x+'" cy="'+y+'" r="'+rad+'" fill="'+fill+'" stroke="#fff" stroke-width="2" opacity="0.92"/>';
+        svg += '<text x="'+x+'" y="'+(y+rad+13)+'" text-anchor="middle" class="sg-label" fill="#2D2F5B">'+n+'</text>';
+    });
+    svg += '</svg>';
+    el.innerHTML = svg;
+
+    // 범례
+    const leg = document.getElementById('graph-legend');
+    if (leg) leg.innerHTML =
+        '<span style="display:flex;align-items:center;gap:4px;"><svg width="28" height="10"><line x1="0" y1="5" x2="22" y2="5" stroke="#26C6A6" stroke-width="2" marker-end="url(#arrow-mutual)"/></svg>쌍방향</span>' +
+        '<span style="display:flex;align-items:center;gap:4px;"><svg width="28" height="10"><line x1="0" y1="5" x2="22" y2="5" stroke="#5B6CF7" stroke-width="1.5" opacity=".6"/></svg>일방향</span>' +
+        '<span style="display:flex;align-items:center;gap:4px;"><svg width="16" height="16"><circle cx="8" cy="8" r="7" fill="#E8EAFF"/></svg>선택 적음</span>' +
+        '<span style="display:flex;align-items:center;gap:4px;"><svg width="16" height="16"><circle cx="8" cy="8" r="7" fill="#5B6CF7"/></svg>선택 많음</span>' +
+        '<span style="display:flex;align-items:center;gap:4px;"><svg width="16" height="16"><circle cx="8" cy="8" r="7" fill="#2D1D96"/></svg>마당발(중간다리)</span>';
+}
+
+// ─── 학생 개인별 분석 ────────────────────────────────────
+function renderIndividualSelect() {
+    const sel = document.getElementById('individual-select');
+    if (!sel) return;
+    const names = resultStudents.map(s => s.name);
+    if (names.length === 0) {
+        document.getElementById('individual-area').innerHTML = '<div class="alert alert-warn">명단이 없습니다.</div>';
+        return;
+    }
+    sel.innerHTML = '<option value="">-- 학생 선택 --</option>' +
+        names.map(n => '<option value="' + n + '">' + n + '</option>').join('');
+    // 기존 핸들러 교체 (onchange 방식으로 중복 방지)
+    sel.onchange = () => renderIndividual(sel.value);
+}
+
+function renderIndividual(name) {
+    const el = document.getElementById('individual-area');
+    if (!name) { el.innerHTML = '<div class="loading">학생을 선택하세요.</div>'; return; }
+
+    const allNames = resultStudents.map(s => s.name);
+    const qs = QUESTIONS[classData.grade];
+
+    // 이 학생이 선택한 친구들
+    const iSelected = [];
+    const myRow = resultRows.find(r => r.name === name);
+    if (myRow) {
+        qs.forEach((q,i) => (myRow['q'+i]||[]).forEach(t => { if(!iSelected.includes(t)) iSelected.push(t); }));
+    }
+    // 이 학생을 선택한 친구들
+    const selectedMe = [];
+    resultRows.forEach(r => {
+        if (r.name === name) return;
+        qs.forEach((q,i) => { if((r['q'+i]||[]).includes(name) && !selectedMe.includes(r.name)) selectedMe.push(r.name); });
+    });
+    // 쌍방향
+    const mutual = iSelected.filter(n => selectedMe.includes(n));
+    const recv = resultTally[name] || 0;
+    const sent = iSelected.length;
+    const type = classifyStudent(name, allNames);
+    const tm = TYPE_META[type];
+
+    // 레이더 차트 (Canvas)
+    const radarData = [
+        { label:'친밀감', val: Math.min(10, recv + sent) },
+        { label:'영향력', val: Math.min(10, recv * 1.5) },
+        { label:'연결성', val: Math.min(10, mutual.length * 2) },
+        { label:'적극성', val: Math.min(10, sent * 1.2) },
+        { label:'안정성', val: Math.min(10, mutual.length + (recv>0?3:0)) }
+    ];
+
+    const canvasId = 'radar-canvas-' + allNames.indexOf(name);
+
+    let html = '';
+    // 유형 배지
+    html += '<div style="background:' + tm.color + ';color:' + tm.text + ';border-radius:10px;padding:12px 16px;margin-bottom:14px;font-weight:800;">' +
+        tm.icon + ' ' + name + ' 학생 · ' + tm.label +
+        '<div style="font-size:12px;font-weight:400;margin-top:4px;">' + tm.desc + '</div></div>';
+
+    // 수치 요약
+    html += '<div class="stat-grid">' +
+        '<div class="stat-pill"><div class="sp-val">' + recv + '</div><div class="sp-lbl">선택받은 횟수</div></div>' +
+        '<div class="stat-pill"><div class="sp-val">' + sent + '</div><div class="sp-lbl">선택한 친구 수</div></div>' +
+        '<div class="stat-pill"><div class="sp-val">' + mutual.length + '</div><div class="sp-lbl">쌍방향 관계</div></div>' +
+        '<div class="stat-pill"><div class="sp-val">' + (myRow ? '✅' : '❌') + '</div><div class="sp-lbl">설문 응답</div></div>' +
+        '</div>';
+
+    // 레이더 차트
+    html += '<canvas id="' + canvasId + '" width="220" height="220" style="display:block;margin:0 auto 16px;"></canvas>';
+
+    // 관계 목록
+    if (mutual.length > 0) {
+        html += '<div style="font-size:13px;font-weight:800;margin-bottom:6px;">🤝 쌍방향 친구</div>' +
+            '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;">' +
+            mutual.map(n=>'<span class="badge" style="background:#D4EDDA;color:#155724;font-size:13px;">'+n+'</span>').join('') +
+            '</div>';
+    }
+    if (selectedMe.filter(n=>!mutual.includes(n)).length > 0) {
+        html += '<div style="font-size:13px;font-weight:800;margin-bottom:6px;">💙 나를 선택한 친구</div>' +
+            '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;">' +
+            selectedMe.filter(n=>!mutual.includes(n)).map(n=>'<span class="badge badge-blue" style="font-size:13px;">'+n+'</span>').join('') +
+            '</div>';
+    }
+    if (iSelected.filter(n=>!mutual.includes(n)).length > 0) {
+        html += '<div style="font-size:13px;font-weight:800;margin-bottom:6px;">➡️ 내가 선택한 친구</div>' +
+            '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;">' +
+            iSelected.filter(n=>!mutual.includes(n)).map(n=>'<span class="badge" style="background:#FFF3CD;color:#856404;font-size:13px;">'+n+'</span>').join('') +
+            '</div>';
+    }
+
+    // 문항별 응답
+    if (myRow) {
+        html += '<div class="divider"></div><div style="font-size:13px;font-weight:800;margin-bottom:8px;">📋 문항별 응답</div>';
+        qs.forEach((q,i) => {
+            const ans = myRow['q'+i] || [];
+            html += '<div style="margin-bottom:8px;"><div style="font-size:12px;color:var(--muted);margin-bottom:3px;">Q'+(i+1)+'. '+q+'</div>' +
+                '<div>' + (ans.length ? ans.map(a=>'<span class="badge badge-blue" style="font-size:12px;">'+a+'</span>').join(' ') : '<span style="font-size:12px;color:var(--muted);">응답 없음</span>') + '</div></div>';
+        });
+    }
+
+    el.innerHTML = html;
+
+    // 레이더 차트 그리기
+    requestAnimationFrame(() => {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const cx = 110, cy = 110, maxR = 80, sides = radarData.length;
+        const angleStep = (Math.PI * 2) / sides;
+
+        ctx.clearRect(0,0,220,220);
+        // 배경 다각형
+        for (let level = 1; level <= 5; level++) {
+            ctx.beginPath();
+            for (let i = 0; i < sides; i++) {
+                const angle = angleStep * i - Math.PI/2;
+                const x = cx + (maxR * level/5) * Math.cos(angle);
+                const y = cy + (maxR * level/5) * Math.sin(angle);
+                i === 0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+            }
+            ctx.closePath();
+            ctx.strokeStyle = '#E0E4FF'; ctx.lineWidth = 1; ctx.stroke();
+        }
+        // 축선
+        for (let i = 0; i < sides; i++) {
+            const angle = angleStep * i - Math.PI/2;
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(cx + maxR * Math.cos(angle), cy + maxR * Math.sin(angle));
+            ctx.strokeStyle = '#E0E4FF'; ctx.lineWidth = 1; ctx.stroke();
+        }
+        // 데이터 다각형
+        ctx.beginPath();
+        radarData.forEach((d,i) => {
+            const angle = angleStep * i - Math.PI/2;
+            const x = cx + maxR * (d.val/10) * Math.cos(angle);
+            const y = cy + maxR * (d.val/10) * Math.sin(angle);
+            i === 0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+        });
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(91,108,247,0.18)'; ctx.fill();
+        ctx.strokeStyle = '#5B6CF7'; ctx.lineWidth = 2; ctx.stroke();
+        // 레이블
+        radarData.forEach((d,i) => {
+            const angle = angleStep * i - Math.PI/2;
+            const x = cx + (maxR+18) * Math.cos(angle);
+            const y = cy + (maxR+18) * Math.sin(angle);
+            ctx.fillStyle = '#2D2F5B'; ctx.font = '700 11px Malgun Gothic, sans-serif';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(d.label, x, y);
+        });
+    });
+}
+
+// ─── 학생 입장 ───────────────────────────────────────────
+async function studentJoin() {
+    const code = document.getElementById('student-class-code').value.trim();
+    const name = document.getElementById('student-name').value.trim();
+    if (!code || !name) return alert("반 코드와 이름을 모두 입력해주세요.");
+    try {
+        const snap = await getDoc(doc(db, "classes", code));
+        if (!snap.exists()) return alert("존재하지 않는 반입니다. 반 코드를 다시 확인해주세요.");
+        const data = snap.data();
+        if (!data.surveyOpen) return alert("현재 설문이 열려 있지 않습니다. 선생님께 문의해 주세요.");
+        const resSnap = await getDoc(doc(db, "classes", code, "responses", name));
+        if (resSnap.exists()) return alert("이미 설문에 참여했습니다. 한 번만 참여할 수 있어요.");
+        currentClass = code; currentUser = name; classData = data;
+        // 설문 친구 목록: 이름만 추출, 본인 제외
+        const normalized = normalizeStudents(data.students || []);
+        classStudents = normalized.filter(s => s.name !== name).map(s => s.name);
+        surveyAnswers = {}; currentQIndex = 0; isSubmitting = false;
+        surveyQuestions = QUESTIONS[data.grade];
+        showQuestion(0);
+        showScreen('screen-survey');
+    } catch (e) { alert("오류: " + e.message); }
+}
+
+// ─── 설문 문항 표시 ──────────────────────────────────────
+function showQuestion(idx) {
+    const total = surveyQuestions.length;
+    currentQIndex = idx;
+    const pct = Math.round(((idx + 1) / total) * 100);
+    document.getElementById('q-current-label').textContent = '질문 ' + (idx + 1) + ' / ' + total;
+    document.getElementById('q-count-label').textContent = pct + '%';
+    document.getElementById('prog-fill').style.width = pct + '%';
+    document.getElementById('q-label').textContent = '질문 ' + (idx + 1);
+    document.getElementById('q-text').textContent = surveyQuestions[idx];
+    const prev = surveyAnswers['q' + idx] || [];
+    document.getElementById('friend-list').innerHTML = classStudents.map(s =>
+        '<div class="friend-chip' + (prev.includes(s) ? ' selected' : '') + '" data-name="' + s.replace(/"/g, '&quot;') + '">' + s + '</div>'
+    ).join('');
+    updateSelCount(idx);
+}
+
+function updateSelCount(idx) {
+    const cnt = (surveyAnswers['q' + idx] || []).length;
+    document.getElementById('sel-count-text').innerHTML =
+        '<strong style="color:var(--primary)">' + cnt + '명</strong> 선택됨 (최대 3명)';
+}
+
+async function nextQuestion() {
+    const next = currentQIndex + 1;
+    if (next < surveyQuestions.length) showQuestion(next);
+    else await submitSurvey();
+}
+
+function skipQuestion() {
+    surveyAnswers['q' + currentQIndex] = [];
+    const next = currentQIndex + 1;
+    if (next < surveyQuestions.length) showQuestion(next);
+    else submitSurvey();
+}
+
+// ─── 설문 제출 ───────────────────────────────────────────
+async function submitSurvey() {
+    if (isSubmitting) return;
+    isSubmitting = true;
+    try {
+        await setDoc(doc(db, "classes", currentClass, "responses", currentUser), {
+            ...surveyAnswers, submittedAt: new Date().toISOString()
+        });
+        showScreen('screen-done');
+    } catch (e) {
+        alert("제출 오류: " + e.message);
+        isSubmitting = false;
+    }
+}
+
+// ─── 총괄 관리자 ─────────────────────────────────────────
+async function loadSuperAdmin() {
+    const el = document.getElementById('superadmin-list');
+    el.innerHTML = '<div class="loading">불러오는 중...</div>';
+    try {
+        const snap = await getDocs(collection(db, "classes"));
+        if (snap.empty) { el.innerHTML = '<p>생성된 반이 없습니다.</p>'; return; }
+        let html = '';
+        snap.forEach(d => {
+            const data = d.data();
+            html += '<div class="list-item"><div><strong>' + d.id + '</strong> <span class="badge badge-blue">' + (GRADE_LABEL[data.grade] || '') + '</span><br>' +
+                '<span style="font-size:12px;color:var(--muted)">학생: ' + (data.students || []).length + '명 / 설문: ' + (data.surveyOpen ? '진행중' : '중지') + '</span></div>' +
+                '<button class="btn btn-danger btn-sm" data-action="superDeleteClass" data-id="' + d.id + '">삭제</button></div>';
+        });
+        el.innerHTML = html;
+    } catch (e) { el.innerHTML = '<div class="alert alert-danger">데이터 로드 실패</div>'; }
+}
+
+async function superDeleteClass(id) {
+    if (!confirm("'" + id + "' 반을 삭제할까요?")) return;
+    await deleteDoc(doc(db, "classes", id));
+    alert("삭제되었습니다.");
+    loadSuperAdmin();
+}
+
+// ════════════════════════════════════════════════════════
+// 전역 이벤트 위임: data-action 속성으로 모든 클릭 처리
+// ════════════════════════════════════════════════════════
+document.addEventListener('click', async (e) => {
+    try {
+        const el = e.target.closest('[data-action]');
+        if (!el) return;
+        const action = el.dataset.action;
+
+        switch (action) {
+            case 'goto': {
+                const screen = el.dataset.screen;
+                if (screen) showScreen(screen);
+                break;
+            }
+            case 'switchTab':        switchTab(el.dataset.tab); break;
+            case 'switchSubTab':     switchSubTab(el.dataset.subtab); break;
+            case 'createClass':      await createClass(); break;
+            case 'teacherLogin':     await teacherLogin(); break;
+            case 'teacherLogout':    teacherLogout(); break;
+            case 'toggleSurvey':     await toggleSurvey(); break;
+            case 'refreshDashboard': await refreshDashboard(); break;
+            case 'copyInviteCode':   await copyInviteCode(); break;
+            case 'addStudent':       await addStudent(); break;
+            case 'removeStudent':    await removeStudent(parseInt(el.dataset.index)); break;
+            case 'clearAllStudents': await clearAllStudents(); break;
+            case 'downloadTemplate': downloadTemplate(); break;
+            case 'generateQR':      await generateQR(); break;
+            case 'printAllQR':      printAllQR(); break;
+            case 'changePassword':   await changePassword(); break;
+            case 'deleteClass':      await deleteClass(); break;
+            case 'studentJoin':      await studentJoin(); break;
+            case 'nextQuestion':     await nextQuestion(); break;
+            case 'skipQuestion':     skipQuestion(); break;
+            case 'superDeleteClass': await superDeleteClass(el.dataset.id); break;
+            default: break;
+        }
+    } catch (err) {
+        console.error('이벤트 처리 오류:', err);
+        alert('오류가 발생했습니다: ' + err.message);
+    }
+});
+
+// 친구 칩 클릭 (friend-list 내부 이벤트 위임)
+document.getElementById('friend-list').addEventListener('click', (e) => {
+    const chip = e.target.closest('.friend-chip');
+    if (!chip) return;
+    e.stopPropagation(); // 전역 document 리스너로 버블링 차단
+    const name = chip.dataset.name;
+    const idx = currentQIndex;
+    if (!surveyAnswers['q' + idx]) surveyAnswers['q' + idx] = [];
+    const arr = surveyAnswers['q' + idx];
+    if (chip.classList.contains('selected')) {
+        chip.classList.remove('selected');
+        surveyAnswers['q' + idx] = arr.filter(n => n !== name);
+    } else {
+        if (arr.length >= 3) return alert("최대 3명까지 선택할 수 있어요.");
+        chip.classList.add('selected');
+        arr.push(name);
+    }
+    updateSelCount(idx);
+});
+
+// 엑셀 업로드 이벤트 초기화
+setupExcelUpload();
+
+// 학생 명단 입력창 엔터키
+document.getElementById('new-student-no').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') document.getElementById('new-student-name').focus();
+});
+document.getElementById('new-student-name').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') addStudent();
+});
+
+// 선생님 로그인 엔터키 (반 이름 / 비밀번호 모두)
+document.getElementById('login-class-name').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') teacherLogin();
+});
+document.getElementById('login-password').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') teacherLogin();
+});
+
+// 학생 입장 엔터키 (반 코드 / 이름 모두)
+document.getElementById('student-class-code').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') studentJoin();
+});
+document.getElementById('student-name').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') studentJoin();
+});
+
+// ─── QR 코드 생성 ────────────────────────────────────────
+// QRCode.js CDN 동적 로드 후 학생별 QR 생성
+function loadQRLib() {
+    return new Promise((resolve, reject) => {
+        if (window.QRCode) { resolve(); return; }
+        const s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+        s.onload = resolve;
+        s.onerror = () => reject(new Error('QR 라이브러리 로드 실패'));
+        document.head.appendChild(s);
+    });
+}
+
+async function generateQR() {
+    const grid = document.getElementById('qr-grid');
+    if (!grid) return;
+
+    // 현재 URL 상태 안내
+    const pageUrl = window.location.href.split('?')[0];
+    const urlInfo = document.getElementById('qr-url-info');
+    if (urlInfo) {
+        if (pageUrl.startsWith('file://')) {
+            urlInfo.style.display = 'block';
+            urlInfo.innerHTML = '⚠️ 현재 로컬 파일로 열려 있습니다. QR코드가 동작하려면 이 파일을 <strong>웹 서버(Firebase Hosting, GitHub Pages 등)에 배포</strong>한 후 사용하세요.';
+        } else {
+            urlInfo.style.display = 'block';
+            urlInfo.className = 'alert alert-success';
+            urlInfo.innerHTML = '✅ QR 링크: <strong>' + pageUrl + '</strong>';
+        }
+    }
+
+    // classStudents는 교사 컨텍스트에서 {no, name} 객체 배열
+    const qrStudents = classStudents.filter(s => s && typeof s === 'object' && s.name);
+    if (qrStudents.length === 0) {
+        grid.innerHTML = '<div class="alert alert-warn">먼저 학생 명단을 등록해 주세요.</div>';
+        return;
+    }
+
+    grid.innerHTML = '<div class="loading">QR코드 생성 중...</div>';
+
+    try {
+        await loadQRLib();
+    } catch (e) {
+        grid.innerHTML = '<div class="alert alert-danger">QR 라이브러리 로드 실패: ' + e.message + '</div>';
+        return;
+    }
+
+    // 번호순 정렬
+    const sorted = [...qrStudents].sort((a, b) => (a.no || 0) - (b.no || 0));
+
+    grid.innerHTML = '<div class="qr-grid" id="print-qr-area"></div>';
+    const container = document.getElementById('print-qr-area');
+
+    sorted.forEach(student => {
+        // QR에 담을 데이터: 현재 페이지 URL + 쿼리스트링 (카메라 앱에서 바로 열림)
+        const qrData = pageUrl + '?class=' + encodeURIComponent(currentClass) +
+                       '&name=' + encodeURIComponent(student.name);
+
+        const card = document.createElement('div');
+        card.className = 'qr-card';
+        card.innerHTML =
+            '<div class="qr-no">' + student.no + '번</div>' +
+            '<div class="qr-name">' + student.name + '</div>' +
+            '<div id="qr-' + student.no + '"></div>' +
+            '<div class="qr-class">' + currentClass + '</div>';
+        container.appendChild(card);
+
+        // QR 생성
+        new window.QRCode(document.getElementById('qr-' + student.no), {
+            text: qrData,
+            width: 100,
+            height: 100,
+            colorDark: '#2D2F5B',
+            colorLight: '#ffffff',
+            correctLevel: window.QRCode.CorrectLevel.M
+        });
+    });
+}
+
+function printAllQR() {
+    const area = document.getElementById('print-qr-area');
+    if (!area || area.children.length === 0) {
+        alert('먼저 QR코드를 생성해 주세요.');
+        return;
+    }
+    window.print();
+}
+
+// ─── URL 쿼리스트링으로 학생 자동 입장 ─────────────────
+// QR코드 스캔 시 ?class=반코드&name=이름 파라미터를 읽어
+// 자동으로 설문 참여 화면까지 진행
+async function applyQueryParams() {
+    const params = new URLSearchParams(window.location.search);
+    const cls  = params.get('class');
+    const name = params.get('name');
+    if (!cls || !name) return; // 파라미터 없으면 일반 홈 화면 유지
+
+    // 학생 로그인 화면으로 이동 후 입력값 채우기
+    showScreen('screen-student-login');
+    document.getElementById('student-class-code').value = cls;
+    document.getElementById('student-name').value = name;
+
+    // Firebase가 준비될 때까지 잠깐 대기 후 자동 참여 시도
+    // (모듈 스크립트 defer 실행이므로 Firebase는 이미 초기화 완료)
+    try {
+        const snap = await getDoc(doc(db, "classes", cls));
+        if (!snap.exists()) {
+            alert("존재하지 않는 반입니다. 반 코드를 확인해 주세요.");
+            return;
+        }
+        const data = snap.data();
+        if (!data.surveyOpen) {
+            // 설문이 아직 열리지 않은 경우 — 입력만 채운 채 대기
+            return;
+        }
+        const resSnap = await getDoc(doc(db, "classes", cls, "responses", name));
+        if (resSnap.exists()) {
+            alert("이미 설문에 참여했습니다.");
+            showScreen('screen-home');
+            return;
+        }
+        // 모든 조건 통과 → 자동으로 설문 시작
+        currentClass = cls; currentUser = name; classData = data;
+        const normalized = normalizeStudents(data.students || []);
+        classStudents = normalized.filter(s => s.name !== name).map(s => s.name);
+        surveyAnswers = {}; currentQIndex = 0; isSubmitting = false;
+        surveyQuestions = QUESTIONS[data.grade];
+        showQuestion(0);
+        showScreen('screen-survey');
+    } catch (e) {
+        // Firebase 오류 시 그냥 입력 채운 화면에서 대기 (수동으로 버튼 누르면 됨)
+        console.warn('QR 자동입장 오류:', e.message);
+    }
+}
+applyQueryParams();
+
+// ─── 이스터에그 ──────────────────────────────────────────
+let clickCount = 0, clickTimer;
+document.getElementById('easter-egg-btn').addEventListener('click', () => {
+    clickCount++;
+    clearTimeout(clickTimer);
+    clickTimer = setTimeout(() => { clickCount = 0; }, 2000);
+    if (clickCount >= 5) {
+        clickCount = 0;
+        const pwd = prompt("총괄 관리자 코드:");
+        if (pwd === "5703958") { loadSuperAdmin(); showScreen('screen-superadmin'); }
+        else if (pwd !== null) alert("인증 실패");
+    }
+});
+</script>
+</body>
+</html>
