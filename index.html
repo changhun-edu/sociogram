@@ -425,6 +425,14 @@
     <div class="back-btn" data-action="goto" data-screen="screen-home">← 처음으로</div>
     <div class="card">
         <div class="card-title">🎒 설문 참여하기</div>
+        <div style="background:linear-gradient(135deg,#E8F5E9,#E3F2FD);border-radius:12px;
+            padding:14px 16px;margin-bottom:16px;border:1.5px solid #B2DFDB;">
+            <div style="font-size:13px;font-weight:800;color:#2E7D32;margin-bottom:4px;">🔒 개인정보 보호 안내</div>
+            <div style="font-size:13px;color:#1B5E20;line-height:1.7;">
+                설문 결과는 <strong>선생님만 확인</strong>하며, 친구들에게 공개되지 않습니다.<br>
+                걱정하지 말고 솔직한 마음으로 편안하게 참여해 주세요. 😊
+            </div>
+        </div>
         <div class="alert alert-info">선생님께 받은 반 코드를 입력해 주세요.</div>
         <div class="input-wrap">
             <label>반 코드 (반 이름)</label>
@@ -447,6 +455,9 @@
             <span id="q-count-label"></span>
         </div>
         <div class="prog-bar"><div class="prog-fill" id="prog-fill"></div></div>
+    </div>
+    <div style="font-size:11px;color:var(--muted);text-align:center;margin-bottom:10px;">
+        🔒 결과는 선생님만 확인합니다. 솔직하게 편안하게 참여해 주세요.
     </div>
     <div class="card">
         <div class="q-label" id="q-label">질문 1</div>
@@ -1553,9 +1564,11 @@ async function loadSuperAdmin() {
 
 async function superDeleteClass(id) {
     if (!confirm("'" + id + "' 반을 삭제할까요?")) return;
-    await deleteDoc(doc(db, "classes", id));
-    alert("삭제되었습니다.");
-    loadSuperAdmin();
+    try {
+        await deleteDoc(doc(db, "classes", id));
+        alert("삭제되었습니다.");
+        loadSuperAdmin();
+    } catch (e) { alert("삭제 오류: " + e.message); }
 }
 
 // ════════════════════════════════════════════════════════
@@ -1685,272 +1698,281 @@ async function downloadPDF() {
     const btn = document.querySelector('[data-action="downloadPDF"]');
     if (btn) { btn.textContent = '⏳ PDF 생성 중...'; btn.disabled = true; }
 
+    // overflowX를 try 바깥에 저장 → finally에서 정확히 복원
+    const prevOverflowX = document.body.style.overflowX;
+
     try {
         await loadPDFLibs();
         const { jsPDF } = window.jspdf;
-        const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-        const PW = 210, PH = 297, M = 14; // A4 크기, 여백
-        const contentW = PW - M * 2;
-        let y = M;
 
-        // ── 헬퍼 함수 ──────────────────────────────────────
-        const addTitle = (text, size = 14) => {
-            pdf.setFontSize(size); pdf.setFont('helvetica', 'bold');
-            pdf.setTextColor(45, 47, 91);
-            pdf.text(text, M, y); y += size * 0.5;
-        };
-        const addText = (text, size = 9, color = [100, 100, 120]) => {
-            // jsPDF 기본 폰트는 이모지 미지원 → 이모지 제거 후 출력
-            const safeText = text.replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27FF}]/gu, '').trim();
-            pdf.setFontSize(size); pdf.setFont('helvetica', 'normal');
-            pdf.setTextColor(...color);
-            const lines = pdf.splitTextToSize(safeText, contentW);
-            lines.forEach(line => {
-                if (y > PH - M) { pdf.addPage(); y = M; }
-                pdf.text(line, M, y); y += size * 0.45;
-            });
-            y += 2;
-        };
-        const addDivider = () => {
-            pdf.setDrawColor(224, 228, 255); pdf.setLineWidth(0.3);
-            pdf.line(M, y, PW - M, y); y += 5;
-        };
-        const checkPage = (needed = 20) => {
-            if (y + needed > PH - M) { pdf.addPage(); y = M; }
-        };
-        const addChip = (text, bgR, bgG, bgB, fgR, fgG, fgB) => {
-            const tw = pdf.getTextWidth(text) + 4;
-            if (x + tw > PW - M) { x = M; y += 7; }
-            pdf.setFillColor(bgR, bgG, bgB);
-            pdf.roundedRect(x, y - 4, tw, 6, 1, 1, 'F');
-            pdf.setTextColor(fgR, fgG, fgB);
-            pdf.setFontSize(8); pdf.setFont('helvetica', 'normal');
-            pdf.text(text, x + 2, y);
-            x += tw + 2;
-        };
-        let x = M;
+        // ── 캡처할 콘텐츠를 임시 컨테이너에 렌더링 ──────────
+        const PW_PX = 794; // A4 @96dpi ≒ 794px
+        const wrap = document.createElement('div');
+        wrap.id = 'pdf-render-wrap';
+        wrap.style.cssText = [
+            'position:absolute',
+            'top:0', 'left:-9999px',   // 화면 왼쪽 바깥 → html2canvas가 top:0 기준으로 정상 캡처
+            'width:' + PW_PX + 'px',
+            'background:#ffffff',
+            'font-family:"Nanum Round Square","Malgun Gothic",sans-serif',
+            'color:#2D2F5B', 'padding:32px', 'box-sizing:border-box',
+            'overflow:hidden'
+        ].join(';');
+        document.body.appendChild(wrap);
 
-        // ══════════════════════════════════════════════════
-        // 표지
-        // ══════════════════════════════════════════════════
-        pdf.setFillColor(91, 108, 247);
-        pdf.rect(0, 0, PW, 60, 'F');
-        pdf.setTextColor(255, 255, 255);
-        pdf.setFontSize(22); pdf.setFont('helvetica', 'bold');
-        pdf.text('Class Relationship Report', M, 28);
-        pdf.setFontSize(13); pdf.setFont('helvetica', 'normal');
-        pdf.text(currentClass + '  ·  ' + new Date().toLocaleDateString('ko-KR') + ' 기준', M, 40);
-        pdf.setFontSize(10);
         const gradeMap = { low: '초등 저학년 (1~2학년)', mid: '초등 중학년 (3~4학년)', high: '초등 고학년 (5~6학년)' };
-        pdf.text(gradeMap[classData.grade] || '', M, 50);
-        y = 75;
+        const allNames = resultStudents.map(s => s.name);
+        const qs = QUESTIONS[classData.grade];
+        const rate = resultStudents.length > 0
+            ? Math.round(resultRows.length / resultStudents.length * 100) : 0;
 
-        // 통계 박스
-        const stats = [
-            { label: 'Total Students', val: String(resultStudents.length) },
-            { label: 'Responses', val: String(resultRows.length) },
-            { label: 'Response Rate', val: (resultStudents.length > 0 ? Math.round(resultRows.length / resultStudents.length * 100) : 0) + '%' }
-        ];
-        const boxW = contentW / 3 - 3;
-        stats.forEach((s, i) => {
-            const bx = M + i * (boxW + 4.5);
-            pdf.setFillColor(238, 240, 255);
-            pdf.roundedRect(bx, y, boxW, 22, 3, 3, 'F');
-            pdf.setTextColor(91, 108, 247); pdf.setFontSize(18); pdf.setFont('helvetica', 'bold');
-            pdf.text(s.val, bx + boxW / 2, y + 12, { align: 'center' });
-            pdf.setTextColor(133, 137, 176); pdf.setFontSize(8); pdf.setFont('helvetica', 'normal');
-            pdf.text(s.label, bx + boxW / 2, y + 19, { align: 'center' });
-        });
-        y += 30; addDivider();
-
-        // ══════════════════════════════════════════════════
-        // 1. 교우관계 유형 분석
-        // ══════════════════════════════════════════════════
-        addTitle('1. Relationship Type Analysis  교우관계 유형 분석', 13);
-        y += 3;
-
-        const TYPE_COLOR_MAP = {
-            alone_forced:    { bg: [248,215,218], fg: [114,28,36]  },
-            one_way:         { bg: [255,243,205], fg: [133,100,4]  },
-            buddy:           { bg: [212,237,218], fg: [21,87,36]   },
-            alone_voluntary: { bg: [226,227,229], fg: [56,61,65]   },
-            normal:          { bg: [238,240,255], fg: [45,47,91]   },
-            popular:         { bg: [226,217,243], fg: [74,29,150]  },
-            connector:       { bg: [209,236,241], fg: [12,84,96]   },
-            star:            { bg: [255,249,196], fg: [123,96,2]   }
+        // ── TYPE_COLOR_MAP (PDF 내부 재사용) ────────────────
+        const TCM = {
+            alone_forced:    { bg:'#F8D7DA', fg:'#721C24' },
+            one_way:         { bg:'#FFF3CD', fg:'#856404' },
+            buddy:           { bg:'#D4EDDA', fg:'#155724' },
+            alone_voluntary: { bg:'#E2E3E5', fg:'#383D41' },
+            normal:          { bg:'#EEF0FF', fg:'#2D2F5B' },
+            popular:         { bg:'#E2D9F3', fg:'#4A1D96' },
+            connector:       { bg:'#D1ECF1', fg:'#0C5460' },
+            star:            { bg:'#FFF9C4', fg:'#7B6002' }
         };
+
+        // ─────────────────────────────────────────────────
+        // HTML 빌더 헬퍼
+        // ─────────────────────────────────────────────────
+        const h1 = (txt) =>
+            '<div style="font-size:20px;font-weight:800;color:#5B6CF7;border-left:5px solid #5B6CF7;' +
+            'padding-left:12px;margin-bottom:14px;">' + txt + '</div>';
+
+        const h2 = (txt, color) =>
+            '<div style="font-size:13px;font-weight:800;color:' + (color||'#2D2F5B') + ';margin-bottom:6px;">' + txt + '</div>';
+
+        const chip = (txt, bg, fg) =>
+            '<span style="display:inline-block;padding:3px 10px;border-radius:99px;font-size:12px;' +
+            'font-weight:700;background:' + bg + ';color:' + fg + ';margin:2px;">' + txt + '</span>';
+
+        const box = (content, bg, border) =>
+            '<div style="background:' + (bg||'#F4F6FF') + ';border-radius:10px;padding:12px 16px;' +
+            'margin-bottom:10px;' + (border ? 'border:1.5px solid '+border+';' : '') + '">' + content + '</div>';
+
+        const divider = () =>
+            '<div style="height:1px;background:#E0E4FF;margin:18px 0;"></div>';
+
+        // ─────────────────────────────────────────────────
+        // 1. 표지 섹션
+        // ─────────────────────────────────────────────────
+        let html = '';
+        html += '<div style="background:linear-gradient(135deg,#5B6CF7,#9B59B6);border-radius:14px;' +
+            'padding:32px 28px;margin-bottom:28px;color:#fff;">' +
+            '<div style="font-size:24px;font-weight:800;margin-bottom:8px;">우리반 관계읽기</div>' +
+            '<div style="font-size:15px;font-weight:700;margin-bottom:4px;">' + currentClass + '</div>' +
+            '<div style="font-size:13px;opacity:.85;">' + gradeMap[classData.grade] + ' · ' +
+            new Date().toLocaleDateString('ko-KR') + ' 기준</div>' +
+            '</div>';
+
+        // 통계 요약 박스
+        html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:28px;">' +
+            [['전체 학생', resultStudents.length + '명'],
+             ['응답 수',   resultRows.length + '명'],
+             ['응답률',    rate + '%']].map(([l,v]) =>
+                '<div style="background:#EEF0FF;border-radius:12px;padding:16px;text-align:center;">' +
+                '<div style="font-size:26px;font-weight:800;color:#5B6CF7;">' + v + '</div>' +
+                '<div style="font-size:12px;color:#8589B0;margin-top:4px;">' + l + '</div></div>'
+            ).join('') + '</div>';
+
+        html += divider();
+
+        // ─────────────────────────────────────────────────
+        // 2. 교우관계 유형 분석
+        // ─────────────────────────────────────────────────
+        html += h1('1. 교우관계 유형 분석');
+
+        html += box('📌 유형은 고정 성격이 아닙니다. 단일 검사로만 판단하지 말고 실제 행동 관찰과 함께 참고하세요. ' +
+            '학생에게 유형을 직접 알리거나 낙인찍지 않도록 주의하세요.', '#F4F6FF');
+
         const ORDER_PDF = ['alone_forced','one_way','buddy','alone_voluntary','normal','popular','connector','star'];
         const groups = {};
         ORDER_PDF.forEach(k => groups[k] = []);
-        resultStudents.map(s => s.name).forEach(name => { groups[classifyStudent(name, resultStudents.map(s=>s.name))].push(name); });
+        allNames.forEach(name => groups[classifyStudent(name, allNames)].push(name));
 
         ORDER_PDF.forEach(type => {
             const students = groups[type];
             if (students.length === 0) return;
             const m = TYPE_META[type];
-            const col = TYPE_COLOR_MAP[type];
-            checkPage(28);
-
-            // 유형 헤더 박스
-            pdf.setFillColor(...col.bg);
-            pdf.roundedRect(M, y, contentW, 10, 2, 2, 'F');
-            pdf.setTextColor(...col.fg); pdf.setFontSize(10); pdf.setFont('helvetica', 'bold');
-            pdf.text(m.icon + '  ' + m.label + '  (' + students.length + '명)', M + 3, y + 7);
-            if (m.urgent) {
-                pdf.setFillColor(255, 82, 82);
-                pdf.roundedRect(PW - M - 22, y + 2, 20, 6, 1, 1, 'F');
-                pdf.setTextColor(255, 255, 255); pdf.setFontSize(7);
-                pdf.text('주의 필요', PW - M - 20, y + 6.5);
-            }
-            y += 13;
-
-            // 학생 칩
-            x = M;
-            students.forEach(n => addChip(n, ...col.bg, ...col.fg));
-            y += 9; x = M; // 칩 한 줄 높이(7px) + 여백
-
-            // 설명 (영문 폰트로 출력)
-            addText(m.desc, 8);
-            y += 2;
+            const c = TCM[type];
+            html += '<div style="border:1.5px solid ' + c.bg + ';border-radius:12px;padding:14px;margin-bottom:10px;">' +
+                '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">' +
+                '<span style="font-size:20px;">' + m.icon + '</span>' +
+                '<span style="font-size:14px;font-weight:800;color:' + c.fg + ';">' + m.label + '</span>' +
+                '<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;' +
+                'background:' + c.bg + ';color:' + c.fg + ';">' + students.length + '명</span>' +
+                (m.urgent ? '<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;' +
+                'background:#FF5252;color:#fff;">⚠ 주의</span>' : '') +
+                '</div>' +
+                '<div style="margin-bottom:8px;">' +
+                students.map(n => chip(n, c.bg, c.fg)).join('') +
+                '</div>' +
+                '<div style="font-size:12px;color:#555;line-height:1.6;">' + m.desc + '</div>' +
+                '</div>';
         });
 
-        addDivider();
+        // TOP5
+        const top5 = Object.entries(resultTally).sort((a,b)=>b[1]-a[1]).slice(0,5);
+        if (top5.length > 0) {
+            html += h2('🏆 가장 많이 선택된 친구 TOP 5');
+            html += '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:8px;">' +
+                top5.map(([name, cnt], i) =>
+                    '<div style="background:#EEF0FF;border-radius:10px;padding:10px;text-align:center;">' +
+                    '<div style="font-size:18px;">' + ['🥇','🥈','🥉','4️⃣','5️⃣'][i] + '</div>' +
+                    '<div style="font-size:13px;font-weight:800;margin-top:4px;">' + name + '</div>' +
+                    '<div style="font-size:11px;color:#8589B0;">' + cnt + '회</div></div>'
+                ).join('') + '</div>';
+        }
 
-        // ══════════════════════════════════════════════════
-        // 2. 소시오그램 그래프 (SVG → canvas → 이미지)
-        // ══════════════════════════════════════════════════
-        checkPage(120);
-        addTitle('2. Sociogram Graph  소시오그램 그래프', 13);
-        y += 3;
+        html += divider();
 
-        // 그래프 탭이 숨어있으면 임시로 렌더링
-        // graph-area가 숨겨진 탭 안에 있어 clientWidth=0일 수 있으므로
-        // 임시로 고정 너비를 지정해 렌더링 후 복원
-        const graphEl = document.getElementById('graph-area');
-        const wasHidden = graphEl.style.display === 'none' || graphEl.offsetParent === null;
-        if (!graphEl.querySelector('svg') || wasHidden) {
-            const origW = graphEl.style.width;
-            graphEl.style.width = '560px';
+        // ─────────────────────────────────────────────────
+        // 3. 소시오그램 그래프
+        // ─────────────────────────────────────────────────
+        html += h1('2. 소시오그램 그래프');
+        // 그래프를 SVG 문자열로 직접 삽입 (이미 렌더링된 SVG 재사용)
+        const graphAreaEl = document.getElementById('graph-area');
+        let svgHtml = '';
+        if (!graphAreaEl.querySelector('svg')) {
+            const origW = graphAreaEl.style.width;
+            graphAreaEl.style.width = (PW_PX - 64) + 'px';
             renderGraph();
-            graphEl.style.width = origW;
+            graphAreaEl.style.width = origW;
         }
-
-        const svgEl = graphEl.querySelector('svg');
-        if (svgEl) {
-            try {
-                // SVG → canvas 변환
-                const svgData = new XMLSerializer().serializeToString(svgEl);
-                const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-                const svgUrl = URL.createObjectURL(svgBlob);
-                const imgCanvas = await new Promise((res, rej) => {
-                    const img = new Image();
-                    img.crossOrigin = 'anonymous';
-                    img.onload = () => {
-                        const c = document.createElement('canvas');
-                        c.width = img.width || 360; c.height = img.height || 420;
-                        const ctx = c.getContext('2d');
-                        ctx.fillStyle = '#F4F6FF'; ctx.fillRect(0, 0, c.width, c.height);
-                        ctx.drawImage(img, 0, 0); res(c);
-                    };
-                    img.onerror = () => rej(new Error('SVG 이미지 로드 실패'));
-                    img.src = svgUrl;
-                });
-                URL.revokeObjectURL(svgUrl);
-                const imgData = imgCanvas.toDataURL('image/png');
-                const iH = Math.min(90, contentW * imgCanvas.height / imgCanvas.width);
-                checkPage(iH + 10);
-                pdf.addImage(imgData, 'PNG', M, y, contentW, iH);
-                y += iH + 5;
-            } catch(e) {
-                addText('[소시오그램 그래프 이미지 변환 실패: ' + e.message + ']', 8, [200, 50, 50]);
-            }
+        const svgNode = graphAreaEl.querySelector('svg');
+        if (svgNode) {
+            // SVG에 viewBox 추가 (리사이즈 대응)
+            const svgClone = svgNode.cloneNode(true);
+            svgClone.setAttribute('viewBox', '0 0 ' + (svgNode.getAttribute('width')||360) + ' ' + (svgNode.getAttribute('height')||420));
+            svgClone.style.cssText = 'width:100%;height:auto;border-radius:12px;background:#F4F6FF;';
+            svgHtml = svgClone.outerHTML;
         }
+        html += '<div style="margin-bottom:10px;">' + svgHtml + '</div>';
+        html += '<div style="font-size:11px;color:#8589B0;margin-bottom:8px;">' +
+            '원 크기 = 선택받은 횟수 &nbsp;·&nbsp; 원 색 진할수록 = 연결 중심형 &nbsp;·&nbsp; 초록 화살표 = 쌍방향 &nbsp;·&nbsp; 파란 화살표 = 일방향' +
+            '</div>';
 
-        // 범례
-        pdf.setFontSize(8); pdf.setFont('helvetica', 'normal'); pdf.setTextColor(133,137,176);
-        pdf.text('● 원 크기: 선택받은 횟수   ● 원 색상 진할수록: 연결 중심형   ── 초록: 쌍방향   ── 파랑: 일방향', M, y);
-        y += 8; addDivider();
+        html += divider();
 
-        // ══════════════════════════════════════════════════
-        // 3. 학생 개인별 분석
-        // ══════════════════════════════════════════════════
-        checkPage(20);
-        addTitle('3. Individual Analysis  학생 개인별 분석', 13);
-        y += 3;
-
-        const allNames = resultStudents.map(s => s.name);
-        const qs = QUESTIONS[classData.grade];
+        // ─────────────────────────────────────────────────
+        // 4. 학생 개인별 분석
+        // ─────────────────────────────────────────────────
+        html += h1('3. 학생 개인별 분석');
 
         allNames.forEach((name, ni) => {
-            checkPage(45);
             const type = classifyStudent(name, allNames);
             const tm = TYPE_META[type];
-            const col = TYPE_COLOR_MAP[type];
-
-            // 학생 헤더
-            pdf.setFillColor(...col.bg);
-            pdf.roundedRect(M, y, contentW, 10, 2, 2, 'F');
-            pdf.setTextColor(...col.fg); pdf.setFontSize(10); pdf.setFont('helvetica', 'bold');
-            pdf.text(tm.icon + '  ' + name + '  ·  ' + tm.label, M + 3, y + 7);
-            y += 13;
-
-            // 수치 요약
+            const c = TCM[type];
             const recv = resultTally[name] || 0;
             const myRow = resultRows.find(r => r.name === name);
             const iSel = [];
-            if (myRow) qs.forEach((q, i) => (myRow['q'+i]||[]).forEach(t => { if(!iSel.includes(t)) iSel.push(t); }));
+            if (myRow) qs.forEach((q,i) => (myRow['q'+i]||[]).forEach(t => { if(!iSel.includes(t)) iSel.push(t); }));
             const selMe = [];
             resultRows.forEach(r => { if(r.name===name) return; qs.forEach((q,i) => { if((r['q'+i]||[]).includes(name) && !selMe.includes(r.name)) selMe.push(r.name); }); });
             const mutual = iSel.filter(n => selMe.includes(n));
 
-            const miniStats = [
-                '선택받은 횟수: ' + recv + '회',
-                '선택한 친구: ' + iSel.length + '명',
-                '쌍방향 관계: ' + mutual.length + '명',
-                '응답 여부: ' + (myRow ? '완료' : '미응답')
-            ];
-            pdf.setFontSize(8); pdf.setFont('helvetica', 'normal'); pdf.setTextColor(45,47,91);
-            miniStats.forEach((s, i) => {
-                pdf.text(s, M + (i % 2) * (contentW / 2), y + Math.floor(i / 2) * 5);
-            });
-            y += 12;
+            html += '<div style="border:1.5px solid ' + c.bg + ';border-radius:12px;padding:14px;margin-bottom:12px;">';
 
-            // 쌍방향 친구
-            if (mutual.length > 0) {
-                addText('🤝 쌍방향 친구: ' + mutual.join(', '), 8, [21,87,36]);
-            }
-            // 나를 선택한 친구
+            // 학생 헤더
+            html += '<div style="background:' + c.bg + ';border-radius:8px;padding:10px 14px;margin-bottom:10px;">' +
+                '<span style="font-size:15px;font-weight:800;color:' + c.fg + ';">' +
+                tm.icon + ' ' + name + ' · ' + tm.label + '</span></div>';
+
+            // 수치 요약
+            html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px;">' +
+                [['선택받은 횟수', recv + '회'],
+                 ['선택한 친구', iSel.length + '명'],
+                 ['쌍방향 관계', mutual.length + '명'],
+                 ['설문 응답', myRow ? '완료' : '미응답']].map(([l,v]) =>
+                    '<div style="background:#F4F6FF;border-radius:8px;padding:8px;text-align:center;">' +
+                    '<div style="font-size:15px;font-weight:800;color:#5B6CF7;">' + v + '</div>' +
+                    '<div style="font-size:10px;color:#8589B0;">' + l + '</div></div>'
+                ).join('') + '</div>';
+
+            // 관계 목록
+            if (mutual.length > 0)
+                html += '<div style="margin-bottom:6px;"><span style="font-size:12px;font-weight:800;">쌍방향 친구: </span>' +
+                    mutual.map(n => chip(n,'#D4EDDA','#155724')).join('') + '</div>';
+
             const onlySelMe = selMe.filter(n => !mutual.includes(n));
-            if (onlySelMe.length > 0) {
-                addText('💙 나를 선택한 친구: ' + onlySelMe.join(', '), 8, [12,84,96]);
-            }
-            // 내가 선택한 친구
-            const onlyISel = iSel.filter(n => !mutual.includes(n));
-            if (onlyISel.length > 0) {
-                addText('➡️ 내가 선택한 친구: ' + onlyISel.join(', '), 8, [133,100,4]);
-            }
+            if (onlySelMe.length > 0)
+                html += '<div style="margin-bottom:6px;"><span style="font-size:12px;font-weight:800;">나를 선택한 친구: </span>' +
+                    onlySelMe.map(n => chip(n,'#D1ECF1','#0C5460')).join('') + '</div>';
 
-            // 구분선 (마지막 학생 제외)
-            if (ni < allNames.length - 1) {
-                y += 2;
-                pdf.setDrawColor(238,240,255); pdf.setLineWidth(0.2);
-                pdf.line(M, y, PW-M, y); y += 5;
-            }
+            const onlyISel = iSel.filter(n => !mutual.includes(n));
+            if (onlyISel.length > 0)
+                html += '<div style="margin-bottom:6px;"><span style="font-size:12px;font-weight:800;">내가 선택한 친구: </span>' +
+                    onlyISel.map(n => chip(n,'#FFF3CD','#856404')).join('') + '</div>';
+
+            html += '</div>';
         });
 
-        // ══════════════════════════════════════════════════
-        // 푸터
-        // ══════════════════════════════════════════════════
-        const pageCount = pdf.internal.getNumberOfPages();
-        for (let i = 1; i <= pageCount; i++) {
-            pdf.setPage(i);
-            pdf.setFontSize(8); pdf.setFont('helvetica', 'normal');
+        // ─────────────────────────────────────────────────
+        // 캔버스로 변환 → PDF로 저장
+        // ─────────────────────────────────────────────────
+        wrap.innerHTML = html;
+
+        // 폰트 로드 대기
+        await document.fonts.ready;
+
+        // html2canvas 캡처 전 수평 스크롤 방지 (left:-9999px 요소로 인한 레이아웃 틀어짐 방지)
+        document.body.style.overflowX = 'hidden';
+
+        const canvas = await window.html2canvas(wrap, {
+            scale: 2,
+            useCORS: true,
+            allowTaint: false,
+            backgroundColor: '#ffffff',
+            width: PW_PX,
+            windowWidth: PW_PX,
+            x: 0,
+            y: 0,
+            scrollX: 0,
+            scrollY: 0
+        });
+
+        // overflow 복원
+        document.body.style.overflowX = prevOverflowX;
+
+        const PW = 210, PH = 297;
+        const imgW = PW;
+        const imgH = canvas.height * (PW / canvas.width);
+        const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+        // 페이지 분할
+        const pageHeightPx = canvas.width * (PH / PW);
+        let offsetY = 0;
+        let isFirst = true;
+        while (offsetY < canvas.height) {
+            if (!isFirst) pdf.addPage();
+            isFirst = false;
+
+            const sliceH = Math.min(pageHeightPx, canvas.height - offsetY);
+            const sliceCanvas = document.createElement('canvas');
+            sliceCanvas.width  = canvas.width;
+            sliceCanvas.height = sliceH;
+            sliceCanvas.getContext('2d').drawImage(canvas, 0, offsetY, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
+
+            const sliceImg = sliceCanvas.toDataURL('image/png');
+            const sliceH_mm = sliceH * (PW / canvas.width);
+            pdf.addImage(sliceImg, 'PNG', 0, 0, imgW, sliceH_mm);
+
+            // 푸터
+            const pageNum = pdf.internal.getCurrentPageInfo().pageNumber;
+            pdf.setFontSize(8);
             pdf.setTextColor(180, 180, 200);
-            pdf.text('우리반 관계읽기  ·  ' + currentClass, M, PH - 6);
-            pdf.text(i + ' / ' + pageCount, PW - M, PH - 6, { align: 'right' });
+            pdf.text('우리반 관계읽기  ·  ' + currentClass, 14, PH - 6);
+            pdf.text(String(pageNum), PW - 14, PH - 6, { align: 'right' });
+
+            offsetY += pageHeightPx;
         }
 
-        // 저장
         const fileName = currentClass + '_교우관계분석_' + new Date().toISOString().split('T')[0] + '.pdf';
         pdf.save(fileName);
 
@@ -1958,6 +1980,11 @@ async function downloadPDF() {
         alert('PDF 생성 오류: ' + e.message);
         console.error(e);
     } finally {
+        // overflow 원래 값으로 복원 (캡처 중 오류 발생 시에도 반드시 복원)
+        document.body.style.overflowX = prevOverflowX;
+        // wrap을 id로 정확히 찾아 정리 (다른 요소 오삭제 방지)
+        const w = document.getElementById('pdf-render-wrap');
+        if (w && w.parentNode) w.parentNode.removeChild(w);
         if (btn) { btn.innerHTML = '📄 결과 PDF 다운로드'; btn.disabled = false; }
     }
 }
