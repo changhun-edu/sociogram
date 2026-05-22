@@ -338,6 +338,14 @@
     </div>
 
     <div id="tab-results" class="tab-content" style="display:none">
+        <!-- PDF 다운로드 버튼 -->
+        <div style="display:flex; gap:8px; margin-bottom:12px;">
+            <button class="btn btn-primary" data-action="downloadPDF"
+                style="background:linear-gradient(135deg,#E53E3E,#C53030); box-shadow:0 4px 14px rgba(229,62,62,.3); margin-bottom:0;">
+                📄 결과 PDF 다운로드
+            </button>
+        </div>
+
         <!-- 결과 서브탭 -->
         <div style="display:flex; gap:8px; margin-bottom:14px; overflow-x:auto;">
             <div class="sub-tab active" data-action="switchSubTab" data-subtab="subtab-types">📊 교우관계 유형</div>
@@ -909,9 +917,11 @@ async function changePassword() {
 // ─── 반 삭제 ────────────────────────────────────────────
 async function deleteClass() {
     if (!confirm("반 [" + currentClass + "]를 삭제하면 모든 데이터가 사라집니다. 삭제할까요?")) return;
-    await deleteDoc(doc(db, "classes", currentClass));
-    alert("삭제되었습니다.");
-    teacherLogout();
+    try {
+        await deleteDoc(doc(db, "classes", currentClass));
+        alert("삭제되었습니다.");
+        teacherLogout();
+    } catch (e) { alert("반 삭제 오류: " + e.message); }
 }
 
 // ─── 결과 공용 상태 ──────────────────────────────────────
@@ -1014,39 +1024,39 @@ function classifyStudent(name, allNames) {
 
 const TYPE_META = {
     alone_forced: {
-        icon: '⚠️', label: '고립형 (강제적 홀로형)',
+        icon: '⚠️', label: '독립형 (비자발적)',
         color: '#F8D7DA', text: '#721C24', urgent: true,
-        badge: '즉각 관심 필요',
-        desc: '친구를 원하지만 연결되지 못하는 유형입니다. 반복적으로 선택받지 못하며, 장기화될 경우 자존감 저하·학교 적응 어려움·학교폭력 취약성으로 이어질 수 있습니다.',
-        features: ['친구를 원하지만 연결되지 못함', '쉬는 시간 혼자 있는 경우 많음', '모둠 활동에서 배제될 가능성', '위축·불안·회피 행동 가능'],
-        guide: ['협동 활동에서 자연스럽게 연결될 기회 제공', '배려적인 학생·마당발형 학생과 연결', '역할 부여를 통해 성공 경험 제공', '지속 관찰: 일시적 고립인지 반복적 배척인지 구분'],
+        badge: '지속 관찰 필요',
+        desc: '또래와의 직접적인 연결이 거의 나타나지 않는 유형입니다. 관계 형성의 어려움으로 인해 연결이 부족한 경우로, 지속적인 관찰과 세심한 지원이 필요합니다.',
+        features: ['또래와의 연결이 거의 나타나지 않음', '관계 형성에 어려움을 겪을 가능성', '쉬는 시간·모둠 활동에서 소외될 수 있음', '추가 설문이나 면담을 통한 확인 권장'],
+        guide: ['협동 활동에서 자연스럽게 연결될 기회 제공', '배려적인 학생·연결 중심형 학생과 자연스럽게 연결', '역할 부여를 통한 성공 경험 제공', '일시적 단절인지 반복적 배척인지 지속 관찰'],
         caution: '"○○랑 같이 놀아줘", "왜 혼자 있니?" 등 공개적 개입은 낙인 효과를 줄 수 있으니 주의하세요.'
     },
     one_way: {
-        icon: '➡️', label: '일방형 (한방향형)',
+        icon: '➡️', label: '편향 연결형',
         color: '#FFF3CD', text: '#856404', urgent: true,
         badge: '관심 권장',
-        desc: '자신은 친구를 선택하지만 상대방에게 선택받지 못하는 유형입니다. 초기에는 단순한 관계 미숙일 수 있지만, 반복될 경우 좌절감·관계 불안으로 이어질 수 있습니다.',
-        features: ['친구 관계 욕구·인정 욕구 높음', '관계 시도는 적극적', '관계 기술·눈치 부족 가능', '과도한 접근으로 오히려 멀어질 수 있음'],
-        guide: ['대화 순서·경청·적절한 거리감 등 사회적 기술 지도', '작은 협동 성공 경험과 긍정 피드백 제공', '특정 친구에게만 집중되지 않도록 관계 폭 넓히기 지원'],
+        desc: '관계 선택이 한쪽 방향으로만 나타나는 유형입니다. 특정 친구에게 관심을 보이지만, 상대방의 선택이나 반응은 충분히 확인되지 않는 경우입니다. 또래 관계에 대한 욕구는 있으나 상호성이 부족할 수 있으므로, 이후 관계 단절이나 소외로 이어지지 않도록 주의 깊게 살펴보는 것이 좋습니다.',
+        features: ['또래 관계에 대한 욕구는 있음', '관계 선택이 한쪽 방향으로만 나타남', '상대방의 반응이 충분히 확인되지 않음', '상호성 부족으로 관계 단절 위험 가능성'],
+        guide: ['대화 순서·경청·적절한 거리감 등 상호적 관계 기술 지도', '작은 협동 성공 경험과 긍정 피드백 제공', '특정 친구에게만 집중되지 않도록 관계 폭 넓히기 지원'],
         caution: null
     },
     buddy: {
-        icon: '🤝', label: '단짝형 (쌍방향형)',
+        icon: '🤝', label: '소수 밀착형',
         color: '#D4EDDA', text: '#155724', urgent: false,
-        badge: '관계 단절 시 주의',
-        desc: '서로 강하게 연결되어 있으나 관계 범위가 매우 좁은 유형입니다. 안정적으로 보이지만 관계 의존성이 높을 경우, 싸움·반 이동·갈등이 생기면 정서적 충격이 클 수 있습니다.',
-        features: ['특정 친구와 매우 친밀하고 정서적 의존 높음', '둘만의 관계 형성', '다른 친구들과 관계 적음', '집단 활동 참여 폭 좁음'],
-        guide: ['다양한 모둠 구성으로 새로운 친구 경험 제공', '소규모 협력 경험으로 집단 활동 참여 확대', '기존 관계 존중 — 억지 분리는 역효과 가능'],
+        badge: '관계 안정성 확인',
+        desc: '서로를 선택하는 관계가 소수의 특정 친구에게 집중된 유형입니다. 넓은 또래 관계보다는 제한된 관계 안에서 친밀감을 형성하는 경향이 있습니다. 해당 관계가 약해지거나 갈등이 생길 경우 정서적 어려움이 커질 수 있으므로, 관계의 안정성과 확장 가능성을 함께 살펴볼 필요가 있습니다.',
+        features: ['소수의 특정 친구에게 관계가 집중됨', '제한된 관계 안에서 높은 친밀감 형성', '넓은 또래 관계보다 깊이를 선호', '관계 갈등·단절 시 정서적 충격 클 수 있음'],
+        guide: ['다양한 모둠 구성으로 새로운 친구 경험 자연스럽게 제공', '소규모 협력 경험으로 집단 활동 참여 확대', '관계의 안정성과 확장 가능성을 함께 관찰', '기존 관계 존중 — 억지 분리는 역효과 가능'],
         caution: null
     },
     alone_voluntary: {
-        icon: '🌙', label: '자발적 홀로형',
+        icon: '🌙', label: '독립형 (자발적)',
         color: '#E2E3E5', text: '#383D41', urgent: false,
         badge: '성향 확인 필요',
-        desc: '혼자 있는 것을 편안해하며 독립적 기질이 강한 유형입니다. 정서적으로 안정적이고 수업·생활 적응이 양호하다면 문제로 보지 않아야 합니다.',
-        features: ['혼자 놀이·독서·그림 등을 선호', '소수 관계만 유지하는 경우 많음', '관계를 꼭 회피하는 것은 아님', '내향성·독립적 기질 가능성'],
-        guide: ['억지로 사회화 강요 금지', '선택 가능한 참여 구조 제공', '관심사 기반 친구 연결', '1:1 활동 기회 제공'],
+        desc: '또래와의 직접적인 연결이 거의 나타나지 않는 유형입니다. 추가 설문이나 면담을 통해 스스로 혼자 있는 것을 선호하는 경우인지 살펴볼 수 있습니다. 정서적으로 안정적이고 수업·생활 적응이 양호하다면 문제로 보지 않아야 합니다.',
+        features: ['혼자 있는 것을 편안하게 여기는 경향', '소수 관계만 유지하는 경우 많음', '관계를 꼭 회피하는 것은 아님', '내향성·독립적 기질 가능성'],
+        guide: ['억지로 사회화 강요 금지', '선택 가능한 참여 구조 제공', '관심사 기반 친구 연결 시도', '1:1 활동 기회 제공'],
         caution: '교사가 "친구가 없어서 문제"로 단정하면 오히려 스트레스를 줄 수 있습니다. "왜 혼자 있니?" 반복 질문은 삼가세요.'
     },
     normal: {
@@ -1059,31 +1069,31 @@ const TYPE_META = {
         caution: null
     },
     popular: {
-        icon: '😊', label: '인기형',
+        icon: '😊', label: '관심 집중형 (우호 영향)',
         color: '#E2D9F3', text: '#4A1D96', urgent: false,
-        badge: null,
-        desc: '여러 친구로부터 선택받는 학생입니다. 학급 내 인지도와 주목도가 높습니다.',
-        features: ['여러 친구에게 선택받음', '학급 내 인지도 높음'],
-        guide: ['긍정적 리더 역할 부여', '협력 활동 중심 역할 제공', '지나친 책임 집중은 부담이 될 수 있으므로 주의'],
+        badge: '긍정적 영향력',
+        desc: '여러 친구에게 자주 언급되거나 선택되는 유형입니다. 학급 안에서 의견 형성이나 분위기에 영향을 줄 가능성이 높습니다. 선택 횟수와 함께 관계의 정서적 분위기를 분석한 결과 우호적인 영향을 미치는 것으로 나타납니다.',
+        features: ['여러 친구에게 자주 선택·언급됨', '학급 내 의견 형성·분위기에 영향', '우호적인 관계의 정서적 분위기 형성'],
+        guide: ['긍정적 리더 역할 부여', '협력 활동 중심 역할 제공', '배려 리더십 경험 강화', '지나친 책임 집중은 부담이 될 수 있으므로 주의'],
         caution: null
     },
     connector: {
-        icon: '🌐', label: '마당발형',
+        icon: '🌐', label: '연결 중심형',
         color: '#D1ECF1', text: '#0C5460', urgent: false,
-        badge: '학급 핵심 연결자',
-        desc: '가장 많은 친구들과 폭넓게 연결된 유형입니다. 단순 인기보다 관계 연결성·중간다리 역할이 높아 학급 응집력을 높이는 핵심 존재입니다. 단, 긍정형인지 부정형인지 확인이 필요합니다.',
-        features: ['누구와도 잘 어울리고 관계 중재 능력 높음', '소외 학생 연결·갈등 완화에 중요한 역할', '험담 전달·갈등 확산의 중심이 될 수도 있음'],
-        guide: ['또래 도우미·협력 리더 역할 부여 (긍정형)', '새 친구 적응 지원 역할 활용', '관계 영향력을 긍정 방향으로 전환 (부정형)', '공감·경청 강화 및 갈등 조정 훈련'],
+        badge: '학급 관계망 핵심',
+        desc: '다양한 친구들과 폭넓게 연결되어 있으며, 친구들 사이를 이어 주는 역할을 하는 유형입니다. 학급 내 관계망을 넓히고 소외를 줄이는 데 긍정적으로 작용할 수 있습니다. 다만 관계의 폭이 넓다고 해서 항상 긍정적인 역할만 하는 것은 아니므로, 상호작용의 정서와 내용 분석을 통해 우호적 연결인지 비우호적 연결인지 확인하는 것이 필요합니다.',
+        features: ['다양한 친구들과 폭넓게 연결됨', '친구들 사이를 이어 주는 중간 역할', '학급 관계망 확장·소외 감소에 기여 가능', '비우호적 연결(험담 전달·갈등 확산)의 중심이 될 수도 있음'],
+        guide: ['또래 도우미·협력 리더 역할 부여 (우호 영향)', '새 친구 적응 지원 역할 활용', '상호작용의 정서와 내용을 함께 분석', '관계 영향력을 긍정 방향으로 전환 지원 (비우호 영향)'],
         caution: null
     },
     star: {
-        icon: '⭐', label: '인기스타형',
-        color: '#FFF3CD', text: '#856404', urgent: false,
-        badge: '학급 여론 주도',
-        desc: '가장 많은 학생들에게 선택받는 유형으로 학급 내 영향력이 매우 큽니다. 긍정형이면 학급 분위기에 좋은 영향을, 부정형이면 집단 배제나 편가르기의 중심이 될 수 있습니다.',
-        features: ['학급 인지도·영향력·주목도 매우 높음', '긍정형: 친절함·배려심·리더십', '부정형: 공격성·조롱·편가르기·관계 지배 가능'],
-        guide: ['긍정적 리더십 강화 및 책임 있는 역할 부여', '배려 리더십 경험 제공', '"제압"보다 "영향력 방향 전환"이 핵심 (부정형)', '공개적 비난·힘겨루기식 지도는 역효과'],
-        caution: '학급 여론을 빠르게 좌우할 수 있으므로 지속적인 관찰이 필요합니다.'
+        icon: '⭐', label: '관심 집중형 (우호·비우호 영향)',
+        color: '#FFF9C4', text: '#7B6002', urgent: false,
+        badge: '학급 분위기 주도',
+        desc: '여러 친구에게 자주 언급되거나 선택되는 유형입니다. 학급 안에서 의견 형성이나 분위기에 영향을 줄 가능성이 높습니다. 선택 횟수만으로 긍정적인 역할을 한다고 판단하기는 어렵기 때문에, 관계의 정서적 분위기와 서술 내용을 함께 분석하여 우호적 영향인지 비우호적 영향인지 확인할 필요가 있습니다.',
+        features: ['학급 내 인지도·영향력·주목도 매우 높음', '우호 영향: 친절함·배려심·긍정적 리더십', '비우호 영향: 편가르기·관계 지배·집단 배제 가능성'],
+        guide: ['긍정적 리더십 강화 및 책임 있는 역할 부여', '배려 리더십 경험 제공', '"제압"보다 "영향력 방향 전환"이 핵심 (비우호 영향)', '공개적 비난·힘겨루기식 지도는 역효과'],
+        caution: '학급 여론을 빠르게 좌우할 수 있으므로 관계의 정서적 분위기와 서술 내용을 함께 지속 관찰하세요.'
     }
 };
 
@@ -1578,6 +1588,7 @@ document.addEventListener('click', async (e) => {
             case 'downloadTemplate': downloadTemplate(); break;
             case 'generateQR':      await generateQR(); break;
             case 'printAllQR':      printAllQR(); break;
+            case 'downloadPDF':     await downloadPDF(); break;
             case 'changePassword':   await changePassword(); break;
             case 'deleteClass':      await deleteClass(); break;
             case 'studentJoin':      await studentJoin(); break;
@@ -1639,7 +1650,317 @@ document.getElementById('student-name').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') studentJoin();
 });
 
-// ─── QR 코드 생성 ────────────────────────────────────────
+// ─── PDF 다운로드 ─────────────────────────────────────────
+async function loadPDFLibs() {
+    const libs = [
+        { id: 'html2canvas-lib', src: 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js', check: () => window.html2canvas },
+        { id: 'jspdf-lib',       src: 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',         check: () => window.jspdf }
+    ];
+    for (const lib of libs) {
+        if (lib.check()) continue; // 이미 로드 완료
+        await new Promise((res, rej) => {
+            const existing = document.getElementById(lib.id);
+            if (existing) {
+                // DOM에 있지만 아직 로딩 중일 수 있으므로 onload 재등록
+                existing.addEventListener('load', res, { once: true });
+                existing.addEventListener('error', () => rej(new Error(lib.id + ' 로드 실패')), { once: true });
+                // 이미 로드 완료 상태면 check()가 true였을 것이므로 여기까지 오지 않음
+                // 혹시 타이밍 경쟁이면 100ms 후 재확인
+                setTimeout(() => { if (lib.check()) res(); }, 100);
+                return;
+            }
+            const s = document.createElement('script');
+            s.id = lib.id; s.src = lib.src;
+            s.onload = res;
+            s.onerror = () => rej(new Error(lib.id + ' 로드 실패'));
+            document.head.appendChild(s);
+        });
+    }
+}
+
+async function downloadPDF() {
+    if (!currentClass || !classData) return alert('먼저 반에 로그인해 주세요.');
+    if (resultRows.length === 0) return alert('응답 데이터가 없습니다. 먼저 결과를 불러오세요.');
+
+    const btn = document.querySelector('[data-action="downloadPDF"]');
+    if (btn) { btn.textContent = '⏳ PDF 생성 중...'; btn.disabled = true; }
+
+    try {
+        await loadPDFLibs();
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        const PW = 210, PH = 297, M = 14; // A4 크기, 여백
+        const contentW = PW - M * 2;
+        let y = M;
+
+        // ── 헬퍼 함수 ──────────────────────────────────────
+        const addTitle = (text, size = 14) => {
+            pdf.setFontSize(size); pdf.setFont('helvetica', 'bold');
+            pdf.setTextColor(45, 47, 91);
+            pdf.text(text, M, y); y += size * 0.5;
+        };
+        const addText = (text, size = 9, color = [100, 100, 120]) => {
+            // jsPDF 기본 폰트는 이모지 미지원 → 이모지 제거 후 출력
+            const safeText = text.replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27FF}]/gu, '').trim();
+            pdf.setFontSize(size); pdf.setFont('helvetica', 'normal');
+            pdf.setTextColor(...color);
+            const lines = pdf.splitTextToSize(safeText, contentW);
+            lines.forEach(line => {
+                if (y > PH - M) { pdf.addPage(); y = M; }
+                pdf.text(line, M, y); y += size * 0.45;
+            });
+            y += 2;
+        };
+        const addDivider = () => {
+            pdf.setDrawColor(224, 228, 255); pdf.setLineWidth(0.3);
+            pdf.line(M, y, PW - M, y); y += 5;
+        };
+        const checkPage = (needed = 20) => {
+            if (y + needed > PH - M) { pdf.addPage(); y = M; }
+        };
+        const addChip = (text, bgR, bgG, bgB, fgR, fgG, fgB) => {
+            const tw = pdf.getTextWidth(text) + 4;
+            if (x + tw > PW - M) { x = M; y += 7; }
+            pdf.setFillColor(bgR, bgG, bgB);
+            pdf.roundedRect(x, y - 4, tw, 6, 1, 1, 'F');
+            pdf.setTextColor(fgR, fgG, fgB);
+            pdf.setFontSize(8); pdf.setFont('helvetica', 'normal');
+            pdf.text(text, x + 2, y);
+            x += tw + 2;
+        };
+        let x = M;
+
+        // ══════════════════════════════════════════════════
+        // 표지
+        // ══════════════════════════════════════════════════
+        pdf.setFillColor(91, 108, 247);
+        pdf.rect(0, 0, PW, 60, 'F');
+        pdf.setTextColor(255, 255, 255);
+        pdf.setFontSize(22); pdf.setFont('helvetica', 'bold');
+        pdf.text('Class Relationship Report', M, 28);
+        pdf.setFontSize(13); pdf.setFont('helvetica', 'normal');
+        pdf.text(currentClass + '  ·  ' + new Date().toLocaleDateString('ko-KR') + ' 기준', M, 40);
+        pdf.setFontSize(10);
+        const gradeMap = { low: '초등 저학년 (1~2학년)', mid: '초등 중학년 (3~4학년)', high: '초등 고학년 (5~6학년)' };
+        pdf.text(gradeMap[classData.grade] || '', M, 50);
+        y = 75;
+
+        // 통계 박스
+        const stats = [
+            { label: 'Total Students', val: String(resultStudents.length) },
+            { label: 'Responses', val: String(resultRows.length) },
+            { label: 'Response Rate', val: (resultStudents.length > 0 ? Math.round(resultRows.length / resultStudents.length * 100) : 0) + '%' }
+        ];
+        const boxW = contentW / 3 - 3;
+        stats.forEach((s, i) => {
+            const bx = M + i * (boxW + 4.5);
+            pdf.setFillColor(238, 240, 255);
+            pdf.roundedRect(bx, y, boxW, 22, 3, 3, 'F');
+            pdf.setTextColor(91, 108, 247); pdf.setFontSize(18); pdf.setFont('helvetica', 'bold');
+            pdf.text(s.val, bx + boxW / 2, y + 12, { align: 'center' });
+            pdf.setTextColor(133, 137, 176); pdf.setFontSize(8); pdf.setFont('helvetica', 'normal');
+            pdf.text(s.label, bx + boxW / 2, y + 19, { align: 'center' });
+        });
+        y += 30; addDivider();
+
+        // ══════════════════════════════════════════════════
+        // 1. 교우관계 유형 분석
+        // ══════════════════════════════════════════════════
+        addTitle('1. Relationship Type Analysis  교우관계 유형 분석', 13);
+        y += 3;
+
+        const TYPE_COLOR_MAP = {
+            alone_forced:    { bg: [248,215,218], fg: [114,28,36]  },
+            one_way:         { bg: [255,243,205], fg: [133,100,4]  },
+            buddy:           { bg: [212,237,218], fg: [21,87,36]   },
+            alone_voluntary: { bg: [226,227,229], fg: [56,61,65]   },
+            normal:          { bg: [238,240,255], fg: [45,47,91]   },
+            popular:         { bg: [226,217,243], fg: [74,29,150]  },
+            connector:       { bg: [209,236,241], fg: [12,84,96]   },
+            star:            { bg: [255,249,196], fg: [123,96,2]   }
+        };
+        const ORDER_PDF = ['alone_forced','one_way','buddy','alone_voluntary','normal','popular','connector','star'];
+        const groups = {};
+        ORDER_PDF.forEach(k => groups[k] = []);
+        resultStudents.map(s => s.name).forEach(name => { groups[classifyStudent(name, resultStudents.map(s=>s.name))].push(name); });
+
+        ORDER_PDF.forEach(type => {
+            const students = groups[type];
+            if (students.length === 0) return;
+            const m = TYPE_META[type];
+            const col = TYPE_COLOR_MAP[type];
+            checkPage(28);
+
+            // 유형 헤더 박스
+            pdf.setFillColor(...col.bg);
+            pdf.roundedRect(M, y, contentW, 10, 2, 2, 'F');
+            pdf.setTextColor(...col.fg); pdf.setFontSize(10); pdf.setFont('helvetica', 'bold');
+            pdf.text(m.icon + '  ' + m.label + '  (' + students.length + '명)', M + 3, y + 7);
+            if (m.urgent) {
+                pdf.setFillColor(255, 82, 82);
+                pdf.roundedRect(PW - M - 22, y + 2, 20, 6, 1, 1, 'F');
+                pdf.setTextColor(255, 255, 255); pdf.setFontSize(7);
+                pdf.text('주의 필요', PW - M - 20, y + 6.5);
+            }
+            y += 13;
+
+            // 학생 칩
+            x = M;
+            students.forEach(n => addChip(n, ...col.bg, ...col.fg));
+            y += 9; x = M; // 칩 한 줄 높이(7px) + 여백
+
+            // 설명 (영문 폰트로 출력)
+            addText(m.desc, 8);
+            y += 2;
+        });
+
+        addDivider();
+
+        // ══════════════════════════════════════════════════
+        // 2. 소시오그램 그래프 (SVG → canvas → 이미지)
+        // ══════════════════════════════════════════════════
+        checkPage(120);
+        addTitle('2. Sociogram Graph  소시오그램 그래프', 13);
+        y += 3;
+
+        // 그래프 탭이 숨어있으면 임시로 렌더링
+        // graph-area가 숨겨진 탭 안에 있어 clientWidth=0일 수 있으므로
+        // 임시로 고정 너비를 지정해 렌더링 후 복원
+        const graphEl = document.getElementById('graph-area');
+        const wasHidden = graphEl.style.display === 'none' || graphEl.offsetParent === null;
+        if (!graphEl.querySelector('svg') || wasHidden) {
+            const origW = graphEl.style.width;
+            graphEl.style.width = '560px';
+            renderGraph();
+            graphEl.style.width = origW;
+        }
+
+        const svgEl = graphEl.querySelector('svg');
+        if (svgEl) {
+            try {
+                // SVG → canvas 변환
+                const svgData = new XMLSerializer().serializeToString(svgEl);
+                const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+                const svgUrl = URL.createObjectURL(svgBlob);
+                const imgCanvas = await new Promise((res, rej) => {
+                    const img = new Image();
+                    img.crossOrigin = 'anonymous';
+                    img.onload = () => {
+                        const c = document.createElement('canvas');
+                        c.width = img.width || 360; c.height = img.height || 420;
+                        const ctx = c.getContext('2d');
+                        ctx.fillStyle = '#F4F6FF'; ctx.fillRect(0, 0, c.width, c.height);
+                        ctx.drawImage(img, 0, 0); res(c);
+                    };
+                    img.onerror = () => rej(new Error('SVG 이미지 로드 실패'));
+                    img.src = svgUrl;
+                });
+                URL.revokeObjectURL(svgUrl);
+                const imgData = imgCanvas.toDataURL('image/png');
+                const iH = Math.min(90, contentW * imgCanvas.height / imgCanvas.width);
+                checkPage(iH + 10);
+                pdf.addImage(imgData, 'PNG', M, y, contentW, iH);
+                y += iH + 5;
+            } catch(e) {
+                addText('[소시오그램 그래프 이미지 변환 실패: ' + e.message + ']', 8, [200, 50, 50]);
+            }
+        }
+
+        // 범례
+        pdf.setFontSize(8); pdf.setFont('helvetica', 'normal'); pdf.setTextColor(133,137,176);
+        pdf.text('● 원 크기: 선택받은 횟수   ● 원 색상 진할수록: 연결 중심형   ── 초록: 쌍방향   ── 파랑: 일방향', M, y);
+        y += 8; addDivider();
+
+        // ══════════════════════════════════════════════════
+        // 3. 학생 개인별 분석
+        // ══════════════════════════════════════════════════
+        checkPage(20);
+        addTitle('3. Individual Analysis  학생 개인별 분석', 13);
+        y += 3;
+
+        const allNames = resultStudents.map(s => s.name);
+        const qs = QUESTIONS[classData.grade];
+
+        allNames.forEach((name, ni) => {
+            checkPage(45);
+            const type = classifyStudent(name, allNames);
+            const tm = TYPE_META[type];
+            const col = TYPE_COLOR_MAP[type];
+
+            // 학생 헤더
+            pdf.setFillColor(...col.bg);
+            pdf.roundedRect(M, y, contentW, 10, 2, 2, 'F');
+            pdf.setTextColor(...col.fg); pdf.setFontSize(10); pdf.setFont('helvetica', 'bold');
+            pdf.text(tm.icon + '  ' + name + '  ·  ' + tm.label, M + 3, y + 7);
+            y += 13;
+
+            // 수치 요약
+            const recv = resultTally[name] || 0;
+            const myRow = resultRows.find(r => r.name === name);
+            const iSel = [];
+            if (myRow) qs.forEach((q, i) => (myRow['q'+i]||[]).forEach(t => { if(!iSel.includes(t)) iSel.push(t); }));
+            const selMe = [];
+            resultRows.forEach(r => { if(r.name===name) return; qs.forEach((q,i) => { if((r['q'+i]||[]).includes(name) && !selMe.includes(r.name)) selMe.push(r.name); }); });
+            const mutual = iSel.filter(n => selMe.includes(n));
+
+            const miniStats = [
+                '선택받은 횟수: ' + recv + '회',
+                '선택한 친구: ' + iSel.length + '명',
+                '쌍방향 관계: ' + mutual.length + '명',
+                '응답 여부: ' + (myRow ? '완료' : '미응답')
+            ];
+            pdf.setFontSize(8); pdf.setFont('helvetica', 'normal'); pdf.setTextColor(45,47,91);
+            miniStats.forEach((s, i) => {
+                pdf.text(s, M + (i % 2) * (contentW / 2), y + Math.floor(i / 2) * 5);
+            });
+            y += 12;
+
+            // 쌍방향 친구
+            if (mutual.length > 0) {
+                addText('🤝 쌍방향 친구: ' + mutual.join(', '), 8, [21,87,36]);
+            }
+            // 나를 선택한 친구
+            const onlySelMe = selMe.filter(n => !mutual.includes(n));
+            if (onlySelMe.length > 0) {
+                addText('💙 나를 선택한 친구: ' + onlySelMe.join(', '), 8, [12,84,96]);
+            }
+            // 내가 선택한 친구
+            const onlyISel = iSel.filter(n => !mutual.includes(n));
+            if (onlyISel.length > 0) {
+                addText('➡️ 내가 선택한 친구: ' + onlyISel.join(', '), 8, [133,100,4]);
+            }
+
+            // 구분선 (마지막 학생 제외)
+            if (ni < allNames.length - 1) {
+                y += 2;
+                pdf.setDrawColor(238,240,255); pdf.setLineWidth(0.2);
+                pdf.line(M, y, PW-M, y); y += 5;
+            }
+        });
+
+        // ══════════════════════════════════════════════════
+        // 푸터
+        // ══════════════════════════════════════════════════
+        const pageCount = pdf.internal.getNumberOfPages();
+        for (let i = 1; i <= pageCount; i++) {
+            pdf.setPage(i);
+            pdf.setFontSize(8); pdf.setFont('helvetica', 'normal');
+            pdf.setTextColor(180, 180, 200);
+            pdf.text('우리반 관계읽기  ·  ' + currentClass, M, PH - 6);
+            pdf.text(i + ' / ' + pageCount, PW - M, PH - 6, { align: 'right' });
+        }
+
+        // 저장
+        const fileName = currentClass + '_교우관계분석_' + new Date().toISOString().split('T')[0] + '.pdf';
+        pdf.save(fileName);
+
+    } catch (e) {
+        alert('PDF 생성 오류: ' + e.message);
+        console.error(e);
+    } finally {
+        if (btn) { btn.innerHTML = '📄 결과 PDF 다운로드'; btn.disabled = false; }
+    }
+}
 // QRCode.js CDN 동적 로드 후 학생별 QR 생성
 function loadQRLib() {
     return new Promise((resolve, reject) => {
