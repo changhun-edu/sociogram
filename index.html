@@ -1003,29 +1003,70 @@ async function loadResults() {
         });
 
         renderTypes(typesEl, allNames, qs);
+        resetClassifyCache(); // 다음 탭 전환 시 최신 데이터로 재계산
     } catch(e) { document.getElementById('types-area').innerHTML = '<div class="alert alert-danger">오류: ' + e.message + '</div>'; }
 }
 
 // ─── 교우관계 유형 판별 ───────────────────────────────────
+// 학급 전체 통계를 한 번만 계산해 캐싱 (매 학생 호출마다 재계산 방지)
+let _classifyCache = null;
+
+function getClassifyStats(allNames) {
+    // allNames가 바뀌면 캐시 무효화
+    const key = allNames.join(',');
+    if (_classifyCache && _classifyCache.key === key) return _classifyCache;
+
+    const mean   = arr => arr.reduce((a, b) => a + b, 0) / (arr.length || 1);
+    const stdDev = arr => {
+        const m = mean(arr);
+        return Math.sqrt(arr.reduce((a, b) => a + (b - m) ** 2, 0) / (arr.length || 1));
+    };
+
+    const allReceived  = allNames.map(n => resultLinks.filter(l => l.to   === n).length);
+    const allNeighbors = allNames.map(n =>
+        allNames.filter(m => resultLinks.some(l => l.from === n && l.to === m)).length
+    );
+
+    _classifyCache = {
+        key,
+        μR: mean(allReceived),   σR: stdDev(allReceived),
+        μN: mean(allNeighbors),  σN: stdDev(allNeighbors),
+        n:  allNames.length
+    };
+    return _classifyCache;
+}
+
+// 결과 로드 시 캐시 초기화
+function resetClassifyCache() { _classifyCache = null; }
+
 function classifyStudent(name, allNames) {
     const sent     = resultLinks.filter(l => l.from === name).length;
     const received = resultLinks.filter(l => l.to   === name).length;
+    const mutual   = allNames.filter(n =>
+        n !== name &&
+        resultLinks.some(l => l.from === name && l.to === n) &&
+        resultLinks.some(l => l.from === n    && l.to === name)
+    ).length;
     const neighbors = allNames.filter(n => resultLinks.some(l => l.from === name && l.to === n));
-    let bridge = 0;
-    neighbors.forEach(a => {
-        neighbors.forEach(b => {
-            if (a !== b && resultLinks.some(l => l.from === a && l.to === b)) bridge++;
-        });
-    });
 
-    // 1. 관심 집중형: 많이 선택받음 (sent 여부 무관)
-    if (received >= 4) return 'popular';
-    // 2. 독립형 (자발적·비자발적): 스스로 선택하지 않는 유형
+    const { μR, σR, μN, σN, n } = getClassifyStats(allNames);
+
+    // 학생 수가 너무 적으면(5명 미만) 상대 기준 적용 불안정 → 단순 기준으로 폴백
+    if (n < 5) {
+        if (sent === 0)      return 'alone';
+        if (received === 0)  return 'one_way';
+        if (received >= 3)   return 'popular';
+        return 'buddy';
+    }
+
+    // 1. 관심 집중형: 선택받은 횟수 ≥ μ + σ (최소 1회 이상)
+    if (received > 0 && received >= μR + σR) return 'popular';
+    // 2. 연결 중심형: 이웃 수 ≥ μ + σ AND 쌍방향 ≥ 2
+    if (neighbors.length >= μN + σN && mutual >= 2) return 'connector';
+    // 3. 독립형: 아무도 선택하지 않음 (자발적·비자발적 모두)
     if (sent === 0) return 'alone';
-    // 3. 편향 연결형: 선택은 하지만 한 번도 선택받지 못함
+    // 4. 편향 연결형: 선택은 했지만 한 번도 선택받지 못함
     if (received === 0) return 'one_way';
-    // 4. 연결 중심형: 폭넓은 연결·중간다리 역할
-    if (bridge >= 3 || neighbors.length >= 4) return 'connector';
     // 5. 소수 밀착형: 나머지
     return 'buddy';
 }
