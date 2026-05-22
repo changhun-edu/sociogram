@@ -1711,12 +1711,17 @@ async function downloadPDF() {
         wrap.id = 'pdf-render-wrap';
         wrap.style.cssText = [
             'position:absolute',
-            'top:0', 'left:-9999px',   // 화면 왼쪽 바깥 → html2canvas가 top:0 기준으로 정상 캡처
+            'top:0', 'left:-9999px',
             'width:' + PW_PX + 'px',
             'background:#ffffff',
-            'font-family:"Nanum Round Square","Malgun Gothic",sans-serif',
-            'color:#2D2F5B', 'padding:32px', 'box-sizing:border-box',
-            'overflow:hidden'
+            'font-family:"Nanum Round Square","Nanum Gothic","Malgun Gothic","Apple SD Gothic Neo",sans-serif',
+            'font-size:14px',
+            'line-height:1.6',
+            'color:#2D2F5B',
+            'padding:40px 40px 40px 40px',
+            'box-sizing:border-box',
+            'overflow:visible',
+            'word-break:keep-all'
         ].join(';');
         document.body.appendChild(wrap);
 
@@ -1915,13 +1920,20 @@ async function downloadPDF() {
 
         // ─────────────────────────────────────────────────
         // 캔버스로 변환 → PDF로 저장
-        // ─────────────────────────────────────────────────
         wrap.innerHTML = html;
 
-        // 폰트 로드 대기
+        // ── 폰트 강제 로드 대기 ───────────────────────────
+        // document.fonts.ready만으로는 부족한 경우가 있어
+        // 실제로 텍스트를 캔버스에 그려 폰트를 강제 활성화
         await document.fonts.ready;
+        // 웹폰트(Nanum Round Square)가 로드될 때까지 추가 대기
+        try {
+            await document.fonts.load('800 16px "Nanum Round Square"');
+            await document.fonts.load('700 14px "Nanum Round Square"');
+            await document.fonts.load('400 13px "Nanum Round Square"');
+        } catch(fe) { /* 폰트 로드 실패 시 시스템 폰트로 폴백 */ }
 
-        // html2canvas 캡처 전 수평 스크롤 방지 (left:-9999px 요소로 인한 레이아웃 틀어짐 방지)
+        // html2canvas 캡처 전 수평 스크롤 방지
         document.body.style.overflowX = 'hidden';
 
         const canvas = await window.html2canvas(wrap, {
@@ -1934,21 +1946,30 @@ async function downloadPDF() {
             x: 0,
             y: 0,
             scrollX: 0,
-            scrollY: 0
+            scrollY: 0,
+            logging: false
         });
 
         // overflow 복원
         document.body.style.overflowX = prevOverflowX;
 
+        // ── PDF 생성 ──────────────────────────────────────
         const PW = 210, PH = 297;
-        const imgW = PW;
-        const imgH = canvas.height * (PW / canvas.width);
+        const MARGIN = 10;          // 상하좌우 여백 (mm)
+        const FOOTER_H = 10;        // 하단 푸터 영역 (mm)
+        const imgW = PW - MARGIN * 2;                    // 콘텐츠 너비
+        const contentH = PH - MARGIN * 2 - FOOTER_H;    // 페이지당 콘텐츠 높이
+
         const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
-        // 페이지 분할
-        const pageHeightPx = canvas.width * (PH / PW);
+        // 캔버스 px → mm 변환 비율
+        const pxToMm = imgW / canvas.width;
+        // 페이지당 캔버스 px 높이
+        const pageHeightPx = Math.round(contentH / pxToMm);
+
         let offsetY = 0;
         let isFirst = true;
+
         while (offsetY < canvas.height) {
             if (!isFirst) pdf.addPage();
             isFirst = false;
@@ -1957,18 +1978,32 @@ async function downloadPDF() {
             const sliceCanvas = document.createElement('canvas');
             sliceCanvas.width  = canvas.width;
             sliceCanvas.height = sliceH;
-            sliceCanvas.getContext('2d').drawImage(canvas, 0, offsetY, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
+            sliceCanvas.getContext('2d').drawImage(
+                canvas, 0, offsetY, canvas.width, sliceH,
+                0, 0, canvas.width, sliceH
+            );
 
-            const sliceImg = sliceCanvas.toDataURL('image/png');
-            const sliceH_mm = sliceH * (PW / canvas.width);
-            pdf.addImage(sliceImg, 'PNG', 0, 0, imgW, sliceH_mm);
+            const sliceImg   = sliceCanvas.toDataURL('image/png');
+            const sliceH_mm  = Math.min(sliceH * pxToMm, contentH); // contentH 초과 방지
 
-            // 푸터
+            // 이미지: 좌우·상단 여백 적용
+            pdf.addImage(sliceImg, 'PNG', MARGIN, MARGIN, imgW, sliceH_mm);
+
+            // 페이지 번호 푸터
             const pageNum = pdf.internal.getCurrentPageInfo().pageNumber;
             pdf.setFontSize(8);
             pdf.setTextColor(180, 180, 200);
-            pdf.text('우리반 관계읽기  ·  ' + currentClass, 14, PH - 6);
-            pdf.text(String(pageNum), PW - 14, PH - 6, { align: 'right' });
+            pdf.text('우리반 관계읽기  ·  ' + currentClass, MARGIN, PH - 5);
+            pdf.text(String(pageNum), PW - MARGIN, PH - 5, { align: 'right' });
+
+            // 상단 여백 영역 흰색으로 덮어 깔끔하게 처리
+            pdf.setFillColor(255, 255, 255);
+            pdf.rect(0, 0, PW, MARGIN, 'F');
+            // 하단 여백 + 푸터 구분선
+            pdf.rect(0, PH - FOOTER_H, PW, FOOTER_H, 'F');
+            pdf.setDrawColor(224, 228, 255);
+            pdf.setLineWidth(0.2);
+            pdf.line(MARGIN, PH - FOOTER_H, PW - MARGIN, PH - FOOTER_H);
 
             offsetY += pageHeightPx;
         }
