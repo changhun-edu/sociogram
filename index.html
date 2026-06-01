@@ -58,12 +58,13 @@
         .role-btn .r-text h3 { font-size: 17px; font-weight: 800; }
         .role-btn .r-text p { font-size: 13px; color: var(--muted); margin-top: 3px; }
 
-        /* ── 새 메인 홈 랜딩 스타일 ── */
+        /* ── 메인 홈 랜딩 스타일 ── */
         #screen-home { padding: 0; }
 
+        /* 히어로 */
         .home-hero {
-            background: linear-gradient(145deg, #4A5BE8 0%, #6B47D6 60%, #9B3FC8 100%);
-            padding: 36px 24px 32px;
+            background: linear-gradient(160deg, #3D4ED6 0%, #5B6CF7 55%, #7C5CBF 100%);
+            padding: 32px 24px 28px;
             text-align: center;
             position: relative;
             overflow: hidden;
@@ -71,145 +72,140 @@
         .home-hero::before {
             content: '';
             position: absolute; inset: 0;
-            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.04'%3E%3Ccircle cx='30' cy='30' r='20'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+            background-image: radial-gradient(circle at 20% 50%, rgba(255,255,255,.06) 0%, transparent 50%),
+                              radial-gradient(circle at 80% 20%, rgba(255,255,255,.06) 0%, transparent 40%);
             pointer-events: none;
         }
-        .home-hero .hero-badge {
-            display: inline-flex; align-items: center; gap: 6px;
-            background: rgba(255,255,255,.18); color: #fff;
-            font-size: 11px; font-weight: 800; padding: 5px 12px;
-            border-radius: 99px; border: 1px solid rgba(255,255,255,.3);
-            margin-bottom: 16px; letter-spacing: 0.3px;
-        }
         .home-hero h1 {
-            font-size: 24px; font-weight: 800; color: #fff;
-            line-height: 1.35; margin-bottom: 10px;
+            font-size: 23px; font-weight: 800; color: #fff;
+            line-height: 1.4; margin-bottom: 10px;
+            position: relative;
         }
-        .home-hero h1 em {
-            font-style: normal;
-            background: linear-gradient(90deg, #FFD740, #FFAB40);
+        .home-hero h1 strong {
+            display: inline-block;
+            background: linear-gradient(90deg, #FFD740, #FFB300);
             -webkit-background-clip: text; -webkit-text-fill-color: transparent;
         }
         .home-hero .hero-sub {
-            font-size: 13px; color: rgba(255,255,255,.8);
-            line-height: 1.6; margin-bottom: 0;
+            font-size: 13px; color: rgba(255,255,255,.78);
+            line-height: 1.65; position: relative;
         }
 
-        /* 소시오그램 미니 애니메이션 */
+        /* 소시오그램 비주얼 */
         .hero-visual {
-            margin: 20px auto 0;
-            width: 160px; height: 100px;
+            margin: 22px auto 0;
+            width: 200px; height: 110px;
             position: relative;
         }
         .hv-node {
-            width: 32px; height: 32px; border-radius: 50%;
+            width: 34px; height: 34px; border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
-            font-size: 14px; position: absolute;
-            box-shadow: 0 3px 10px rgba(0,0,0,.2);
-            animation: hv-float 3s ease-in-out infinite;
+            font-size: 15px; position: absolute;
+            background: rgba(255,255,255,.22);
+            border: 2px solid rgba(255,255,255,.4);
+            box-shadow: 0 3px 12px rgba(0,0,0,.18);
+            color: #fff; font-weight: 800;
         }
-        .hv-node:nth-child(1) { background:#FFD740; top:0; left:50%; transform:translateX(-50%); animation-delay:0s; }
-        .hv-node:nth-child(2) { background:#26C6A6; top:34px; left:10px; animation-delay:.4s; }
-        .hv-node:nth-child(3) { background:#FF7043; top:34px; right:10px; animation-delay:.8s; }
-        .hv-node:nth-child(4) { background:#5B6CF7; bottom:0; left:30%; animation-delay:1.2s; }
-        .hv-node:nth-child(5) { background:#E040FB; bottom:0; right:22%; animation-delay:1.6s; }
-        .hv-line {
-            position: absolute; background: rgba(255,255,255,.25);
-            height: 1.5px; transform-origin: left center;
-            border-radius: 99px;
+        .hv-node.center {
+            width: 42px; height: 42px; font-size: 17px;
+            background: rgba(255,255,255,.32);
+            border-color: rgba(255,255,255,.7);
+            box-shadow: 0 4px 16px rgba(0,0,0,.25), 0 0 0 6px rgba(255,255,255,.08);
+            animation: hv-pulse 2.4s ease-in-out infinite;
         }
+        @keyframes hv-pulse {
+            0%,100% { box-shadow: 0 4px 16px rgba(0,0,0,.25), 0 0 0 6px rgba(255,255,255,.08); }
+            50%      { box-shadow: 0 4px 16px rgba(0,0,0,.25), 0 0 0 10px rgba(255,255,255,.04); }
+        }
+        .hv-node:not(.center) { animation: hv-float 3.2s ease-in-out infinite; }
+        .hv-node:nth-child(3) { animation-delay: .5s; }
+        .hv-node:nth-child(4) { animation-delay: 1s; }
+        .hv-node:nth-child(5) { animation-delay: 1.5s; }
+        .hv-node:nth-child(6) { animation-delay: 2s; }
         @keyframes hv-float {
             0%,100% { transform: translateY(0); }
-            50% { transform: translateY(-5px); }
-        }
-        .hv-node:nth-child(1) { animation: hv-float1 3s ease-in-out infinite; }
-        @keyframes hv-float1 {
-            0%,100% { transform: translateX(-50%) translateY(0); }
-            50% { transform: translateX(-50%) translateY(-5px); }
+            50%      { transform: translateY(-5px); }
         }
 
-        /* 기능 카드 슬라이드 */
+        /* 기능 그리드 */
         .feature-section {
-            padding: 24px 20px 8px;
+            padding: 22px 20px 4px;
             background: var(--bg);
         }
-        .feature-section .sec-title {
-            font-size: 13px; font-weight: 800; color: var(--muted);
-            margin-bottom: 12px; letter-spacing: 0.3px;
+        .sec-title {
+            font-size: 12px; font-weight: 800; color: var(--muted);
+            margin-bottom: 12px; letter-spacing: 0.5px;
+            text-transform: uppercase;
         }
-        .feature-scroll {
-            display: flex; gap: 12px;
-            overflow-x: auto; padding-bottom: 8px;
-            scrollbar-width: none;
+        .feat-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
         }
-        .feature-scroll::-webkit-scrollbar { display: none; }
         .feat-card {
-            flex: 0 0 200px;
             background: var(--card); border-radius: 16px;
-            padding: 18px 16px; border: 1.5px solid var(--border);
-            box-shadow: 0 2px 12px rgba(91,108,247,.07);
+            padding: 16px 14px; border: 1.5px solid var(--border);
+            box-shadow: 0 2px 10px rgba(91,108,247,.06);
             transition: transform .15s, box-shadow .15s;
         }
-        .feat-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(91,108,247,.15); }
+        .feat-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(91,108,247,.13); }
         .feat-icon {
-            width: 44px; height: 44px; border-radius: 12px;
+            width: 40px; height: 40px; border-radius: 11px;
             display: flex; align-items: center; justify-content: center;
-            font-size: 22px; margin-bottom: 12px;
+            font-size: 20px; margin-bottom: 10px;
         }
-        .feat-icon.qr  { background: linear-gradient(135deg,#EEF0FF,#D8DBFF); }
-        .feat-icon.ai  { background: linear-gradient(135deg,#E8F5E9,#C8E6C9); }
-        .feat-icon.pdf { background: linear-gradient(135deg,#FFF3E0,#FFCCBC); }
-        .feat-card h4 { font-size: 14px; font-weight: 800; margin-bottom: 6px; color: var(--text); }
-        .feat-card p  { font-size: 12px; color: var(--muted); line-height: 1.55; }
+        .feat-icon.c1 { background: #EEF0FF; }
+        .feat-icon.c2 { background: #E8F5E9; }
+        .feat-icon.c3 { background: #FFF3E0; }
+        .feat-icon.c4 { background: #FCE4EC; }
+        .feat-card h4 { font-size: 13px; font-weight: 800; margin-bottom: 4px; color: var(--text); }
+        .feat-card p  { font-size: 11px; color: var(--muted); line-height: 1.55; }
 
         /* 역할 선택 */
-        .role-section { padding: 8px 20px 16px; background: var(--bg); }
-        .role-section .sec-title {
-            font-size: 13px; font-weight: 800; color: var(--muted);
-            margin-bottom: 12px; letter-spacing: 0.3px;
-        }
+        .role-section { padding: 16px 20px 16px; background: var(--bg); }
+
         .role-btn-student {
-            border-radius: 18px; padding: 20px 22px;
-            display: flex; align-items: center; gap: 16px;
+            border-radius: 16px; padding: 18px 20px;
+            display: flex; align-items: center; gap: 14px;
             cursor: pointer; transition: all .15s;
-            background: linear-gradient(135deg, #FF7043, #FF8C42);
-            border: none; margin-bottom: 12px;
-            box-shadow: 0 6px 20px rgba(255,112,67,.35);
-            width: 100%;
+            background: var(--primary);
+            border: none; margin-bottom: 10px;
+            box-shadow: 0 5px 18px rgba(91,108,247,.38);
+            width: 100%; text-align: left;
         }
-        .role-btn-student:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(255,112,67,.45); filter: brightness(1.05); }
-        .role-btn-student .r-icon { font-size: 42px; flex-shrink: 0; }
-        .role-btn-student .r-text h3 { font-size: 18px; font-weight: 800; color: #fff; }
-        .role-btn-student .r-text p { font-size: 13px; color: rgba(255,255,255,.85); margin-top: 3px; }
-        .role-btn-student .r-arrow { margin-left: auto; font-size: 22px; color: rgba(255,255,255,.7); flex-shrink: 0; }
+        .role-btn-student:hover { transform: translateY(-2px); box-shadow: 0 9px 26px rgba(91,108,247,.45); filter: brightness(1.06); }
+        .role-btn-student .r-icon { font-size: 38px; flex-shrink: 0; }
+        .role-btn-student .r-text h3 { font-size: 17px; font-weight: 800; color: #fff; }
+        .role-btn-student .r-text p { font-size: 12px; color: rgba(255,255,255,.82); margin-top: 3px; }
+        .role-btn-student .r-arrow { margin-left: auto; font-size: 22px; color: rgba(255,255,255,.6); flex-shrink: 0; }
 
         .role-btn-teacher {
-            border-radius: 18px; padding: 18px 22px;
-            display: flex; align-items: center; gap: 16px;
+            border-radius: 16px; padding: 16px 20px;
+            display: flex; align-items: center; gap: 14px;
             cursor: pointer; transition: all .15s;
             background: var(--card);
             border: 2px solid var(--border);
             margin-bottom: 0;
-            box-shadow: 0 2px 12px rgba(91,108,247,.08);
-            width: 100%;
+            box-shadow: 0 2px 10px rgba(91,108,247,.07);
+            width: 100%; text-align: left;
         }
-        .role-btn-teacher:hover { border-color: var(--primary); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(91,108,247,.14); }
-        .role-btn-teacher .r-icon { font-size: 36px; flex-shrink: 0; }
-        .role-btn-teacher .r-text h3 { font-size: 16px; font-weight: 800; color: var(--text); }
+        .role-btn-teacher:hover { border-color: var(--primary); transform: translateY(-2px); box-shadow: 0 6px 18px rgba(91,108,247,.13); }
+        .role-btn-teacher .r-icon { font-size: 34px; flex-shrink: 0; }
+        .role-btn-teacher .r-text h3 { font-size: 15px; font-weight: 800; color: var(--text); }
         .role-btn-teacher .r-text p { font-size: 12px; color: var(--muted); margin-top: 3px; }
         .role-btn-teacher .r-arrow { margin-left: auto; font-size: 18px; color: var(--muted); flex-shrink: 0; }
 
         /* 신뢰 뱃지 */
         .trust-bar {
-            display: flex; justify-content: center; gap: 0;
-            padding: 14px 20px 24px; background: var(--bg);
-            flex-wrap: wrap; gap: 8px;
+            display: flex; justify-content: center;
+            padding: 12px 20px 26px; background: var(--bg);
+            flex-wrap: wrap; gap: 7px;
         }
         .trust-badge {
-            display: flex; align-items: center; gap: 5px;
+            display: flex; align-items: center; gap: 4px;
             font-size: 11px; font-weight: 700; color: var(--muted);
             background: var(--card); border: 1.5px solid var(--border);
-            padding: 5px 12px; border-radius: 99px;
+            padding: 5px 11px; border-radius: 99px;
         }
 
         .q-progress { margin-bottom: 20px; }
@@ -328,56 +324,61 @@
 
     <!-- 히어로 -->
     <div class="home-hero">
-        <div class="hero-badge">🏫 AI 기반 교우관계 분석 서비스</div>
-        <h1>QR 하나로 시작하는<br><em>우리 반 관계읽기</em></h1>
-        <p class="hero-sub">설문 → AI 분석 → PDF 리포트까지<br>선생님과 학생 모두를 위한 서비스예요</p>
-        <!-- 소시오그램 미니 비주얼 -->
+        <h1>우리 반 친구 관계,<br><strong>설문부터 리포트까지</strong></h1>
+        <p class="hero-sub">학생 설문 → AI 관계 분석 → PDF 저장<br>선생님의 교우관계 파악을 도와드려요</p>
+
+        <!-- 소시오그램 미니 비주얼: 중심 노드 + 주변 노드 + SVG 선 -->
         <div class="hero-visual">
-            <svg style="position:absolute;inset:0;width:100%;height:100%;" xmlns="http://www.w3.org/2000/svg">
-                <line x1="80" y1="16" x2="26" y2="50" stroke="rgba(255,255,255,.3)" stroke-width="1.5"/>
-                <line x1="80" y1="16" x2="134" y2="50" stroke="rgba(255,255,255,.3)" stroke-width="1.5"/>
-                <line x1="26" y1="50" x2="64" y2="84" stroke="rgba(255,255,255,.3)" stroke-width="1.5"/>
-                <line x1="134" y1="50" x2="100" y2="84" stroke="rgba(255,255,255,.3)" stroke-width="1.5"/>
-                <line x1="64" y1="84" x2="100" y2="84" stroke="rgba(255,255,255,.3)" stroke-width="1.5"/>
+            <svg style="position:absolute;inset:0;width:100%;height:100%;overflow:visible;" xmlns="http://www.w3.org/2000/svg">
+                <!-- 중심(100,55) → 각 주변 노드 -->
+                <line x1="100" y1="55" x2="40"  y2="17"  stroke="rgba(255,255,255,.28)" stroke-width="1.5"/>
+                <line x1="100" y1="55" x2="165" y2="17"  stroke="rgba(255,255,255,.28)" stroke-width="1.5"/>
+                <line x1="100" y1="55" x2="22"  y2="78"  stroke="rgba(255,255,255,.28)" stroke-width="1.5"/>
+                <line x1="100" y1="55" x2="178" y2="78"  stroke="rgba(255,255,255,.28)" stroke-width="1.5"/>
+                <!-- 주변끼리 연결 일부 -->
+                <line x1="40"  y1="17" x2="165" y2="17"  stroke="rgba(255,255,255,.14)" stroke-width="1"/>
+                <line x1="22"  y1="78" x2="178" y2="78"  stroke="rgba(255,255,255,.14)" stroke-width="1"/>
             </svg>
-            <div class="hv-node" style="top:0;left:50%;transform:translateX(-50%)">👑</div>
-            <div class="hv-node" style="top:34px;left:6px">😊</div>
-            <div class="hv-node" style="top:34px;right:6px">🌟</div>
-            <div class="hv-node" style="bottom:0;left:28%">🤝</div>
-            <div class="hv-node" style="bottom:0;right:20%">💛</div>
+            <!-- 중심 노드 -->
+            <div class="hv-node center" style="top:50%;left:50%;transform:translate(-50%,-50%)">나</div>
+            <!-- 주변 노드 -->
+            <div class="hv-node" style="top:0;left:23%">A</div>
+            <div class="hv-node" style="top:0;right:18%">B</div>
+            <div class="hv-node" style="bottom:0;left:6%">C</div>
+            <div class="hv-node" style="bottom:0;right:2%">D</div>
         </div>
     </div>
 
-    <!-- 핵심 기능 카드 -->
+    <!-- 핵심 기능 2×2 그리드 -->
     <div class="feature-section">
-        <div class="sec-title">✨ 주요 기능</div>
-        <div class="feature-scroll">
+        <div class="sec-title">주요 기능</div>
+        <div class="feat-grid">
             <div class="feat-card">
-                <div class="feat-icon qr">🔲</div>
-                <h4>QR로 간편 참여</h4>
-                <p>학생 이름이 담긴 개인 QR코드를 출력해 나눠주세요. 스캔 한 번으로 설문에 바로 연결돼요.</p>
+                <div class="feat-icon c1">🔲</div>
+                <h4>QR·코드 참여</h4>
+                <p>개인 QR 인쇄 또는 반 코드 입력, 두 가지 방법으로 간편하게 참여해요.</p>
             </div>
             <div class="feat-card">
-                <div class="feat-icon ai">🧠</div>
+                <div class="feat-icon c2">🧠</div>
                 <h4>AI 유형 분석</h4>
-                <p>리더형·중재자형·소외 위험 등 학생별 관계 유형과 맞춤 지도 방법을 제공해요.</p>
+                <p>리더형·중재자형·소외 위험 등 유형별 맞춤 지도 방법을 제공해요.</p>
             </div>
             <div class="feat-card">
-                <div class="feat-icon pdf">📄</div>
+                <div class="feat-icon c3">📄</div>
                 <h4>PDF 리포트</h4>
-                <p>소시오그램·개인 분석·지도 방법을 한 번에 PDF로 저장하고 활용할 수 있어요.</p>
+                <p>소시오그램·개인 분석 결과를 한 번에 PDF로 저장할 수 있어요.</p>
             </div>
             <div class="feat-card">
-                <div class="feat-icon" style="background:linear-gradient(135deg,#FCE4EC,#F8BBD0);">📚</div>
-                <h4>학년군별 맞춤 설문</h4>
-                <p>저학년·중학년·고학년 발달 수준에 맞는 설문 문항으로 더 정확한 결과를 얻어요.</p>
+                <div class="feat-icon c4">📚</div>
+                <h4>학년군별 설문</h4>
+                <p>저·중·고학년 발달 수준에 맞는 문항으로 더 정확한 결과를 얻어요.</p>
             </div>
         </div>
     </div>
 
     <!-- 역할 선택 -->
     <div class="role-section">
-        <div class="sec-title">👇 어떻게 이용하시나요?</div>
+        <div class="sec-title">시작하기</div>
         <button class="role-btn-student" data-action="goto" data-screen="screen-student-login">
             <div class="r-icon">🎒</div>
             <div class="r-text">
@@ -396,11 +397,10 @@
         </button>
     </div>
 
-    <!-- 신뢰 뱃지 -->
+    <!-- 신뢰 뱃지 — 안심 메시지만 -->
     <div class="trust-bar">
         <div class="trust-badge">🔒 결과는 선생님만 확인</div>
         <div class="trust-badge">👥 익명 보장</div>
-        <div class="trust-badge">📚 학년군별 맞춤 설문</div>
         <div class="trust-badge">✅ 무료 서비스</div>
     </div>
 
