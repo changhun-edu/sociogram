@@ -75,11 +75,11 @@
         ══════════════════════════════════ */
         .home-hero {
             background: linear-gradient(175deg, #FFFCF8 0%, #FFF4EE 100%);
-            padding: 36px 24px 32px;
+            padding: 36px 24px 48px;
             text-align: center;
             border-bottom: 2px solid var(--border);
             position: relative;
-            overflow: hidden;
+            overflow: clip; /* hidden→clip: 장식 원은 가리되 자식 요소 세로 클리핑 방지 */
         }
         /* 배경 도트 패턴 — 복숭아색 */
         .home-hero::before {
