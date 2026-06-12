@@ -2467,7 +2467,7 @@ async function generateQR() {
             urlInfo.innerHTML = '⚠️ 현재 로컬 파일로 열려 있습니다. QR코드가 동작하려면 이 파일을 <strong>웹 서버(Firebase Hosting, GitHub Pages 등)에 배포</strong>한 후 사용하세요.';
         } else {
             urlInfo.style.display = 'block';
-            urlInfo.className = 'alert alert-success';
+            urlInfo.className = 'alert alert-info';
             urlInfo.innerHTML = '✅ QR 링크: <strong>' + pageUrl + '</strong>';
         }
     }
@@ -2499,24 +2499,31 @@ async function generateQR() {
         const qrData = pageUrl + '?class=' + encodeURIComponent(currentClass) +
                        '&name=' + encodeURIComponent(student.name);
 
+        // ID 충돌 방지: 번호+이름 조합으로 고유 ID 생성
+        const safeId = 'qr-card-' + student.no + '-' + student.name.replace(/[^a-zA-Z0-9가-힣]/g, '_');
+
         const card = document.createElement('div');
         card.className = 'qr-card';
+        const qrDivId = 'qrdiv-' + safeId;
         card.innerHTML =
             '<div class="qr-no">' + student.no + '번</div>' +
             '<div class="qr-name">' + student.name + '</div>' +
-            '<div id="qr-' + student.no + '"></div>' +
+            '<div id="' + qrDivId + '"></div>' +
             '<div class="qr-class">' + currentClass + '</div>';
         container.appendChild(card);
 
-        // QR 생성
-        new window.QRCode(document.getElementById('qr-' + student.no), {
-            text: qrData,
-            width: 100,
-            height: 100,
-            colorDark: '#2D2F5B',
-            colorLight: '#ffffff',
-            correctLevel: window.QRCode.CorrectLevel.M
-        });
+        // QR 생성 (DOM에 추가된 후 즉시 실행)
+        const qrDiv = document.getElementById(qrDivId);
+        if (qrDiv) {
+            new window.QRCode(qrDiv, {
+                text: qrData,
+                width: 100,
+                height: 100,
+                colorDark: '#2D2F5B',
+                colorLight: '#ffffff',
+                correctLevel: window.QRCode.CorrectLevel.M
+            });
+        }
     });
 }
 
