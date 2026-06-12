@@ -440,12 +440,12 @@
             body * { visibility: hidden; }
             #print-qr-area, #print-qr-area * { visibility: visible; }
             #print-qr-area {
-                position: fixed; top: 0; left: 0; width: 100%;
+                position: absolute; top: 0; left: 0; width: 100%;
                 display: grid !important;
                 grid-template-columns: repeat(4, 1fr);
                 gap: 8px; padding: 10mm;
             }
-            .qr-card { page-break-inside: avoid; border: 1px solid #ccc; border-radius: 8px; padding: 10px 6px; }
+            .qr-card { break-inside: avoid; page-break-inside: avoid; border: 1px solid #ccc; border-radius: 8px; padding: 10px 6px; }
             .qr-card canvas, .qr-card img { width: 90px !important; height: 90px !important; }
         }
     </style>
@@ -2533,7 +2533,54 @@ function printAllQR() {
         alert('먼저 QR코드를 생성해 주세요.');
         return;
     }
-    window.print();
+
+    // 방안 B: 팝업 새 창에 QR 카드만 담아 출력 (브라우저 호환성 최고)
+    const cards = area.querySelectorAll('.qr-card');
+    let cardsHtml = '';
+    cards.forEach(card => {
+        const clone = card.cloneNode(true);
+        // canvas → img 변환 (팝업 창으로 이전 시 canvas 내용 보존)
+        const srcCanvas = card.querySelector('canvas');
+        const dstCanvas = clone.querySelector('canvas');
+        if (srcCanvas && dstCanvas) {
+            const img = document.createElement('img');
+            img.src = srcCanvas.toDataURL('image/png');
+            img.style.cssText = 'width:90px;height:90px;';
+            dstCanvas.replaceWith(img);
+        }
+        cardsHtml += clone.outerHTML;
+    });
+
+    const win = window.open('', '_blank', 'width=900,height=700');
+    if (!win) {
+        // 팝업 차단 시 기존 @media print 방식으로 폴백
+        window.print();
+        return;
+    }
+
+    const classLabel = currentClass || '';
+    win.document.write('<!DOCTYPE html>\n' +
+'<html lang="ko"><head>\n' +
+'<meta charset="UTF-8">\n' +
+'<title>QR코드 인쇄 \u2014 ' + classLabel + '</title>\n' +
+'<style>\n' +
+'* { box-sizing: border-box; margin: 0; padding: 0; }\n' +
+'body { font-family: \'Malgun Gothic\', \'Apple SD Gothic Neo\', sans-serif; background: #fff; }\n' +
+'.print-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 10mm; }\n' +
+'.qr-card { border: 1px solid #ccc; border-radius: 8px; padding: 10px 6px; text-align: center;\n' +
+'  display: flex; flex-direction: column; align-items: center; gap: 6px;\n' +
+'  break-inside: avoid; page-break-inside: avoid; }\n' +
+'.qr-no   { font-size: 11px; color: #999; font-weight: 700; }\n' +
+'.qr-name { font-size: 15px; font-weight: 800; color: #2A1F1A; }\n' +
+'.qr-class{ font-size: 10px; color: #aaa; margin-top: -2px; }\n' +
+'img { width: 90px !important; height: 90px !important; display: block; }\n' +
+'@media print { body { margin: 0; } .print-grid { padding: 8mm; gap: 6px; } }\n' +
+'</style>\n' +
+'</head><body>\n' +
+'<div class="print-grid">' + cardsHtml + '</div>\n' +
+'<script>window.onload = function() { window.print(); };<\/script>\n' +
+'</body></html>');
+    win.document.close();
 }
 
 // ─── URL 쿼리스트링으로 학생 자동 입장 ─────────────────
