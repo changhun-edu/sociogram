@@ -2534,70 +2534,92 @@ function printAllQR() {
         return;
     }
 
-    // 각 카드: canvas → img(90×90 고정) 변환 후 HTML 수집
+    // 각 카드의 QR 이미지를 dataURL로 추출
     const cards = area.querySelectorAll('.qr-card');
-    let cardsHtml = '';
+    const cardDataList = [];
     cards.forEach(card => {
-        const clone = card.cloneNode(true);
+        // QRCode.js는 canvas + img 두 개를 생성 — canvas에서 dataURL 추출
         const srcCanvas = card.querySelector('canvas');
-        const dstEl    = clone.querySelector('canvas');
-        if (srcCanvas && dstEl) {
-            const img = document.createElement('img');
-            img.src    = srcCanvas.toDataURL('image/png');
-            // HTML 속성 + style 양쪽 모두 90×90 고정 (CSS 우선순위 충돌 방지)
-            img.width  = 90;
-            img.height = 90;
-            img.style.cssText = 'width:90px!important;height:90px!important;display:block;flex-shrink:0;';
-            dstEl.replaceWith(img);
-        }
-        cardsHtml += clone.outerHTML;
+        const noEl   = card.querySelector('.qr-no');
+        const nameEl = card.querySelector('.qr-name');
+        const clsEl  = card.querySelector('.qr-class');
+        cardDataList.push({
+            dataUrl : srcCanvas ? srcCanvas.toDataURL('image/png') : '',
+            no      : noEl   ? noEl.textContent   : '',
+            name    : nameEl ? nameEl.textContent  : '',
+            cls     : clsEl  ? clsEl.textContent   : ''
+        });
     });
 
+    // 팝업 창 열기
     const win = window.open('', '_blank', 'width=960,height=720');
     if (!win) {
-        // 팝업 차단 시 @media print 방식으로 폴백
+        // 팝업 차단 시 @media print 폴백
         window.print();
         return;
     }
 
-    const classLabel = currentClass || '';
-    win.document.write('<!DOCTYPE html>\n' +
-'<html lang="ko"><head>\n' +
-'<meta charset="UTF-8">\n' +
-'<title>QR코드 인쇄 \u2014 ' + classLabel + '</title>\n' +
-'<style>\n' +
-'* { box-sizing: border-box; margin: 0; padding: 0; }\n' +
-'body { font-family: \'Malgun Gothic\', \'Apple SD Gothic Neo\', sans-serif; background: #fff; }\n' +
-/* 4열 고정, min-width:0으로 긴 이름에도 그리드 붕괴 방지 */
-'.print-grid {\n' +
-'  display: grid;\n' +
-'  grid-template-columns: repeat(4, minmax(0, 1fr));\n' +
-'  gap: 6px; padding: 8mm;\n' +
-'}\n' +
-'.qr-card {\n' +
-'  border: 1px solid #ccc; border-radius: 8px; padding: 8px 4px;\n' +
-'  text-align: center; display: flex; flex-direction: column;\n' +
-'  align-items: center; gap: 4px; min-width: 0;\n' +
-'  break-inside: avoid; page-break-inside: avoid;\n' +
-'}\n' +
-'.qr-no   { font-size: 10px; color: #999; font-weight: 700; }\n' +
-/* 긴 이름: 줄바꿈 허용, 최소 9px까지 축소 */
-'.qr-name {\n' +
-'  font-size: 13px; font-weight: 800; color: #2A1F1A;\n' +
-'  word-break: keep-all; overflow-wrap: break-word;\n' +
-'  width: 100%; line-height: 1.3;\n' +
-'}\n' +
-'.qr-class{ font-size: 9px; color: #aaa; }\n' +
-'img { width: 90px !important; height: 90px !important; display: block; flex-shrink: 0; }\n' +
-'@media print {\n' +
-'  body { margin: 0; }\n' +
-'  .print-grid { padding: 6mm; gap: 4px; }\n' +
-'}\n' +
-'</style>\n' +
-'</head><body>\n' +
-'<div class="print-grid">' + cardsHtml + '</div>\n' +
-'<script>window.onload = function() { window.print(); };<\/script>\n' +
-'</body></html>');
+    // 카드 HTML 조립 (canvas/img 혼재 없이 img 단일 사용)
+    const cardsHtml = cardDataList.map(function(d) {
+        return '<div class="qr-card">' +
+            '<div class="qr-no">' + d.no + '</div>' +
+            '<div class="qr-name">' + d.name + '</div>' +
+            '<img src="' + d.dataUrl + '" width="90" height="90" alt="QR">' +
+            '<div class="qr-class">' + d.cls + '</div>' +
+            '</div>';
+    }).join('');
+
+    const css = [
+        '* { box-sizing: border-box; margin: 0; padding: 0; }',
+        'body { font-family: "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; background: #fff; }',
+        '.print-grid {',
+        '  display: grid;',
+        '  grid-template-columns: repeat(4, minmax(0, 1fr));',
+        '  gap: 6px;',
+        '  padding: 8mm;',
+        '}',
+        '.qr-card {',
+        '  border: 1px solid #ccc;',
+        '  border-radius: 8px;',
+        '  padding: 8px 4px;',
+        '  text-align: center;',
+        '  display: flex;',
+        '  flex-direction: column;',
+        '  align-items: center;',
+        '  gap: 4px;',
+        '  min-width: 0;',
+        '  break-inside: avoid;',
+        '  page-break-inside: avoid;',
+        '}',
+        '.qr-no { font-size: 10px; color: #999; font-weight: 700; }',
+        '.qr-name {',
+        '  font-size: 13px;',
+        '  font-weight: 800;',
+        '  color: #2A1F1A;',
+        '  word-break: keep-all;',
+        '  overflow-wrap: break-word;',
+        '  width: 100%;',
+        '  line-height: 1.3;',
+        '}',
+        '.qr-class { font-size: 9px; color: #aaa; }',
+        'img { width: 90px; height: 90px; display: block; flex-shrink: 0; }',
+        '@media print {',
+        '  body { margin: 0; }',
+        '  .print-grid { padding: 6mm; gap: 4px; }',
+        '}'
+    ].join('\n');
+
+    win.document.write(
+        '<!DOCTYPE html>' +
+        '<html lang="ko"><head>' +
+        '<meta charset="UTF-8">' +
+        '<title>QR\ucf54\ub4dc \uc778\uc1c4 \u2014 ' + (currentClass || '') + '</title>' +
+        '<style>' + css + '</style>' +
+        '</head><body>' +
+        '<div class="print-grid">' + cardsHtml + '</div>' +
+        '<script>window.onload = function() { window.print(); };<\/script>' +
+        '</body></html>'
+    );
     win.document.close();
 }
 
