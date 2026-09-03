@@ -540,7 +540,7 @@
             <div class="r-icon">🎒</div>
             <div class="r-text">
                 <h3>학생이에요</h3>
-                <p>반 코드 입력 또는 QR 스캔으로<br>설문에 참여해요</p>
+                <p>PIN 번호 입력 또는 QR 스캔으로<br>설문에 참여해요</p>
             </div>
         </button>
         <button class="role-btn-teacher" data-action="goto" data-screen="screen-teacher-menu">
@@ -559,8 +559,8 @@
             <div class="feat-card">
                 <div class="feat-icon c1">🔲</div>
                 <div class="feat-card-body">
-                    <h4>QR·코드 참여</h4>
-                    <p>개인 QR 인쇄 또는 반 코드 입력, 두 가지 방법으로 간편하게 참여해요.</p>
+                    <h4>QR·PIN 참여</h4>
+                    <p>개인 QR 인쇄 또는 4자리 PIN 입력, 두 가지 방법으로 간편하게 참여해요.</p>
                 </div>
             </div>
             <div class="feat-card">
@@ -666,6 +666,9 @@
             <div class="stat-box"><div class="num" id="stat-rate">0%</div><div class="lbl">응답률</div></div>
         </div>
 
+        <!-- 학생 참여 방식 안내 (PIN 또는 기존 반 코드) -->
+        <div id="entry-info" style="margin-bottom:12px;"></div>
+
         <!-- 설문 시작 + QR 배부 나란히 -->
         <div style="display:flex; gap:10px; margin-bottom:4px;">
             <button class="btn btn-accent" id="btn-toggle-survey" data-action="toggleSurvey" style="flex:1; margin-bottom:0;">설문 시작하기 ▶</button>
@@ -766,6 +769,7 @@
             <div class="sub-tab active" data-action="switchSubTab" data-subtab="subtab-types">📊 교우관계 유형</div>
             <div class="sub-tab" data-action="switchSubTab" data-subtab="subtab-graph">🕸️ 소시오그램</div>
             <div class="sub-tab" data-action="switchSubTab" data-subtab="subtab-individual">👤 개인별 분석</div>
+            <div class="sub-tab" data-action="switchSubTab" data-subtab="subtab-manage">🗂️ 응답 관리</div>
         </div>
 
         <!-- 서브탭1: 교우관계 유형 -->
@@ -797,6 +801,18 @@
                     <select id="individual-select"></select>
                 </div>
                 <div id="individual-area"><div class="loading">학생을 선택하세요.</div></div>
+            </div>
+        </div>
+
+        <!-- 서브탭4: 응답 관리 -->
+        <div id="subtab-manage" class="subtab-content" style="display:none">
+            <div class="card">
+                <div class="card-title">🗂️ 응답 관리 (삭제 · 재참여)</div>
+                <div class="alert alert-info" style="font-size:12px; line-height:1.7;">
+                    엉터리로 입력한 학생의 응답을 <strong>삭제</strong>하면, 그 학생은 다시 설문에 참여할 수 있습니다.<br>
+                    명단에 없는 이름으로 들어온 응답도 여기서 정리할 수 있어요.
+                </div>
+                <div id="manage-area"><div class="loading">불러오는 중...</div></div>
             </div>
         </div>
     </div>
@@ -848,17 +864,51 @@
                 걱정하지 말고 솔직한 마음으로 편안하게 참여해 주세요. 😊
             </div>
         </div>
-        <div class="alert alert-info">선생님께 받은 반 코드를 입력해 주세요.</div>
+        <div class="alert alert-info">선생님께서 알려주신 <strong>4자리 PIN 번호</strong>를 입력해 주세요.</div>
         <div class="input-wrap">
-            <label>반 코드 (반 이름)</label>
-            <input type="text" id="student-class-code" placeholder="예: 3학년2반">
+            <label>참여 PIN (숫자 4자리)</label>
+            <input type="tel" inputmode="numeric" maxlength="4" id="student-pin" placeholder="0000"
+                style="text-align:center; font-size:28px; letter-spacing:12px; font-weight:800; padding:14px 10px;">
         </div>
-        <div class="input-wrap">
-            <label>내 이름</label>
-            <input type="text" id="student-name" placeholder="본인 이름 입력">
+        <button class="btn btn-accent" data-action="pinJoin">다음 →</button>
+
+        <div class="divider"></div>
+        <div id="legacy-toggle" data-action="toggleLegacyJoin"
+            style="text-align:center; font-size:12px; color:var(--muted); font-weight:700;
+                   cursor:pointer; padding:6px 0;">
+            PIN을 못 받았어요 · 반 코드로 참여하기 ▾
         </div>
-        <button class="btn btn-accent" data-action="studentJoin">설문 시작하기 →</button>
+        <div id="legacy-join" style="display:none; margin-top:10px;">
+            <div class="alert alert-warn" style="font-size:12px;">
+                예전 방식입니다. 반 코드와 <strong>선생님 명단에 등록된 이름</strong>이 모두 맞아야 참여할 수 있어요.
+            </div>
+            <div class="input-wrap">
+                <label>반 코드 (반 이름)</label>
+                <input type="text" id="student-class-code" placeholder="예: 3학년2반">
+            </div>
+            <div class="input-wrap">
+                <label>내 이름</label>
+                <input type="text" id="student-name" placeholder="본인 이름 입력">
+            </div>
+            <button class="btn btn-accent" data-action="studentJoin">설문 시작하기 →</button>
+        </div>
+
         <button class="btn btn-gray" data-action="goto" data-screen="screen-home">취소</button>
+    </div>
+</div>
+
+<!-- 학생 번호 선택 (PIN 입장 전용) -->
+<div id="screen-student-pick" class="screen">
+    <div class="back-btn" data-action="goto" data-screen="screen-student-login">← 뒤로</div>
+    <div class="card">
+        <div class="card-title">🙋 내 번호를 눌러 주세요</div>
+        <div class="alert alert-info" id="pick-class-label" style="font-size:13px;"></div>
+        <div id="pick-grid" style="display:grid; grid-template-columns:repeat(5,1fr); gap:8px; margin-top:4px;"></div>
+        <div style="font-size:12px; color:var(--muted); line-height:1.6; margin-top:14px;">
+            번호를 누르면 내 이름이 맞는지 한 번 더 확인해요.<br>
+            번호를 모르면 선생님께 여쭤보세요.
+        </div>
+        <button class="btn btn-gray" style="margin-top:12px;" data-action="goto" data-screen="screen-student-login">← 뒤로</button>
     </div>
 </div>
 
@@ -998,6 +1048,51 @@ let currentClass = "", currentUser = "", classData = null;
 let surveyAnswers = {}, currentQIndex = 0, surveyQuestions = [], classStudents = [];
 let isSubmitting = false;
 
+// ─── 공통 헬퍼 ──────────────────────────────────────────
+// 한글 자모 분리(iOS NFD) · 공백 차이를 흡수해 이름을 비교하기 위한 정규화
+function normName(s) {
+    return (s || '').normalize('NFC').replace(/\s+/g, '');
+}
+// 명단에서 이름으로 학생 찾기 (정규화 비교)
+function findStudentByName(list, name) {
+    const t = normName(name);
+    if (!t) return null;
+    return list.find(s => normName(s.name) === t) || null;
+}
+// 이름 가운데 글자 가리기 (김서준 → 김O준)
+function maskName(n) {
+    const s = (n || '').trim();
+    if (s.length <= 1) return s;
+    if (s.length === 2) return s[0] + 'O';
+    return s[0] + 'O'.repeat(s.length - 2) + s[s.length - 1];
+}
+// HTML 속성 삽입용 이스케이프
+function escAttr(s) {
+    return String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+}
+// 4자리 PIN 발급 (중복 회피)
+async function issuePin(classId) {
+    for (let i = 0; i < 25; i++) {
+        const pin = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+        const snap = await getDoc(doc(db, "pins", pin));
+        if (!snap.exists()) {
+            await setDoc(doc(db, "pins", pin), { classId, createdAt: new Date().toISOString() });
+            return pin;
+        }
+    }
+    throw new Error('PIN 발급에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+}
+// PIN 방식 반인데 PIN이 없는 경우 자동 발급 (발급 실패로 누락된 반 복구용)
+async function ensurePin() {
+    if (!classData || classData.entryMode !== 'pin' || classData.pin) return;
+    try {
+        const p = await issuePin(currentClass);
+        await updateDoc(doc(db, "classes", currentClass), { pin: p });
+        classData.pin = p;
+        renderEntryInfo();
+    } catch (e) { console.warn('PIN 자동 발급 실패:', e.message); }
+}
+
 // ─── 화면 전환 ──────────────────────────────────────────
 function showScreen(id) {
     if (!id) return;
@@ -1037,13 +1132,24 @@ async function createClass() {
         if (snap.exists()) return alert("이미 존재하는 반 이름입니다.");
         await setDoc(doc(db, "classes", name), {
             password: pwd, grade, createdAt: new Date().toISOString(),
-            surveyOpen: false, students: []
+            surveyOpen: false, students: [], entryMode: 'pin'
         });
+        // 학생 참여용 4자리 PIN 발급
+        let newPin = '';
+        try {
+            newPin = await issuePin(name);
+            await updateDoc(doc(db, "classes", name), { pin: newPin });
+        } catch (pe) { console.warn('PIN 발급 실패:', pe.message); }
+
         const stored2 = localStorage.getItem('classCreatedDates');
         const dateArr = stored2 ? JSON.parse(stored2) : [];
         dateArr.push(today);
         localStorage.setItem('classCreatedDates', JSON.stringify(dateArr));
-        alert("반 [" + name + "]이 생성되었습니다!\n학생들에게 반 이름(코드)을 알려주세요.\n\n※ 생성 후 3개월이 지나면 자동으로 삭제될 수 있으니\n   결과 자료는 미리 저장해 주세요.");
+        alert("반 [" + name + "]이 생성되었습니다!\n\n"
+            + (newPin
+                ? "🔢 학생 참여 PIN: " + newPin + "\n이 번호를 칠판이나 화면에 보여주세요.\n학생은 PIN 입력 후 자기 번호만 누르면 됩니다.\n\n"
+                : "※ PIN 발급이 지연되었습니다. 반에 접속하면 자동으로 발급됩니다.\n\n")
+            + "※ 생성 후 3개월이 지나면 자동으로 삭제될 수 있으니\n   결과 자료는 미리 저장해 주세요.");
         document.getElementById('create-class-name').value = '';
         document.getElementById('create-password').value = '';
         showScreen('screen-teacher-menu');
@@ -1078,6 +1184,41 @@ function loadDashboard() {
     renderStudentTags();
     updateStats();
     updateSurveyBtn();
+    renderEntryInfo();
+    ensurePin();
+}
+
+// 학생 참여 방식 안내 (PIN 방식 / 기존 반 코드 방식)
+function renderEntryInfo() {
+    const el = document.getElementById('entry-info');
+    if (!el) return;
+    const isPin = classData && classData.entryMode === 'pin';
+    if (isPin) {
+        const pin = classData.pin || '----';
+        el.innerHTML =
+            '<div style="background:linear-gradient(135deg,#EEF2FF,#F5F0FF); border:1.5px solid #C7D2FE;' +
+            'border-radius:12px; padding:14px;">' +
+              '<div style="font-size:12px; font-weight:800; color:#4F46E5; margin-bottom:8px;">🔢 학생 참여 PIN</div>' +
+              '<div style="display:flex; align-items:center; gap:10px;">' +
+                '<div style="flex:1; font-size:34px; font-weight:900; letter-spacing:10px; color:#312E81; text-align:center;">' + pin + '</div>' +
+                '<button class="btn btn-secondary btn-sm" data-action="copyInviteCode" style="width:auto; margin-bottom:0; flex-shrink:0; padding:8px 12px;">📋 복사</button>' +
+              '</div>' +
+              '<div style="font-size:12px; color:#4C51BF; line-height:1.6; margin-top:8px;">' +
+                '이 번호를 칠판·TV에 보여주세요. 학생은 <strong>PIN 입력 → 자기 번호 선택</strong>으로 참여합니다.<br>' +
+                '설문이 열려 있어야 입장할 수 있고, 명단에 이름이 없으면 참여할 수 없습니다.' +
+              '</div>' +
+            '</div>';
+    } else {
+        el.innerHTML =
+            '<div style="background:#F4F6FF; border:1.5px solid #D7DCFF; border-radius:12px; padding:12px 14px;">' +
+              '<div style="font-size:12px; font-weight:800; color:var(--primary); margin-bottom:6px;">🔤 학생 참여 코드 (기존 방식)</div>' +
+              '<div style="font-size:18px; font-weight:900; color:var(--text); margin-bottom:6px;">' + escAttr(currentClass) + '</div>' +
+              '<div style="font-size:12px; color:var(--muted); line-height:1.6;">' +
+                '이 반은 업데이트 이전에 만들어져 <strong>반 코드 + 이름</strong> 방식을 그대로 사용합니다.<br>' +
+                '이제는 명단에 등록된 이름과 일치해야만 입장됩니다. 개인 QR도 그대로 쓸 수 있어요.' +
+              '</div>' +
+            '</div>';
+    }
 }
 
 async function updateStats() {
@@ -1329,10 +1470,15 @@ function doParseXLSX(file, resolve, reject) {
 
 // ─── 초대 코드 ───────────────────────────────────────────
 async function copyInviteCode() {
+    const isPin = classData && classData.entryMode === 'pin' && classData.pin;
+    const text = isPin ? classData.pin : currentClass;
+    const label = isPin
+        ? "참여 PIN이 복사되었습니다.\n\nPIN: " + text + "\n\n학생들에게 이 번호를 보여주세요!"
+        : "참여 코드가 복사되었습니다.\n\n반 코드: " + text + "\n\n학생들에게 이 코드를 알려주세요!";
     try {
-        await navigator.clipboard.writeText(currentClass);
-        alert("참여 코드가 복사되었습니다.\n\n반 코드: " + currentClass + "\n\n학생들에게 이 코드를 알려주세요!");
-    } catch (e) { alert("반 코드: " + currentClass); }
+        await navigator.clipboard.writeText(text);
+        alert(label);
+    } catch (e) { alert((isPin ? "참여 PIN: " : "반 코드: ") + text); }
 }
 
 // ─── 비밀번호 변경 ──────────────────────────────────────
@@ -1348,10 +1494,24 @@ async function changePassword() {
 }
 
 // ─── 반 삭제 ────────────────────────────────────────────
+// 반 + 응답 + PIN 매핑을 함께 삭제 (하위 컬렉션은 자동 삭제되지 않으므로 직접 정리)
+async function purgeClassCompletely(id) {
+    try {
+        const snap = await getDoc(doc(db, "classes", id));
+        const pin = snap.exists() ? snap.data().pin : null;
+        if (pin) { try { await deleteDoc(doc(db, "pins", pin)); } catch (e) {} }
+    } catch (e) {}
+    try {
+        const resSnap = await getDocs(collection(db, "classes", id, "responses"));
+        for (const d of resSnap.docs) { try { await deleteDoc(d.ref); } catch (e) {} }
+    } catch (e) {}
+    await deleteDoc(doc(db, "classes", id));
+}
+
 async function deleteClass() {
     if (!confirm("반 [" + currentClass + "]를 삭제하면 모든 데이터가 사라집니다. 삭제할까요?")) return;
     try {
-        await deleteDoc(doc(db, "classes", currentClass));
+        await purgeClassCompletely(currentClass);
         alert("삭제되었습니다.");
         teacherLogout();
     } catch (e) { alert("반 삭제 오류: " + e.message); }
@@ -1365,7 +1525,7 @@ let resultLinks = [];     // [{from, to}]  (단방향)
 
 // ─── switchSubTab ─────────────────────────────────────────
 function switchSubTab(subId) {
-    ['subtab-types','subtab-graph','subtab-individual'].forEach(id => {
+    ['subtab-types','subtab-graph','subtab-individual','subtab-manage'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = id === subId ? 'block' : 'none';
     });
@@ -1375,6 +1535,7 @@ function switchSubTab(subId) {
 
     if (subId === 'subtab-graph')      renderGraph();
     if (subId === 'subtab-individual') renderIndividualSelect();
+    if (subId === 'subtab-manage')     renderManage();
 }
 
 // ─── 결과 로드 (공용 데이터 수집 후 유형 분석 먼저 표시) ─
@@ -1395,7 +1556,12 @@ async function loadResults() {
 
         // 응답 수집
         const resSnap = await getDocs(collection(db, "classes", currentClass, "responses"));
-        if (resSnap.empty) { typesEl.innerHTML = '<div class="alert alert-warn">아직 응답이 없습니다.</div>'; return; }
+        if (resSnap.empty) {
+            resultRows = []; resultTally = {}; resultLinks = [];
+            resetClassifyCache();
+            typesEl.innerHTML = '<div class="alert alert-warn">아직 응답이 없습니다.</div>';
+            return;
+        }
 
         resultRows = [];
         resSnap.forEach(d => resultRows.push({ name: d.id, ...d.data() }));
@@ -1427,6 +1593,142 @@ async function loadResults() {
         renderTypes(typesEl, allNames, qs);
         resetClassifyCache(); // 다음 탭 전환 시 최신 데이터로 재계산
     } catch(e) { document.getElementById('types-area').innerHTML = '<div class="alert alert-danger">오류: ' + e.message + '</div>'; }
+}
+
+// ─── 응답 관리 (개별 삭제 · 재참여) ───────────────────────
+async function renderManage() {
+    const el = document.getElementById('manage-area');
+    if (!el) return;
+    if (!currentClass) { el.innerHTML = '<div class="alert alert-warn">먼저 반에 로그인해 주세요.</div>'; return; }
+    el.innerHTML = '<div class="loading">불러오는 중...</div>';
+    try {
+        const classSnap = await getDoc(doc(db, "classes", currentClass));
+        const roster = normalizeStudents(classSnap.exists() ? (classSnap.data().students || []) : [])
+                        .slice().sort((a, b) => (a.no || 0) - (b.no || 0));
+        const resSnap = await getDocs(collection(db, "classes", currentClass, "responses"));
+        const rows = [];
+        resSnap.forEach(d => rows.push({ id: d.id, submittedAt: (d.data() || {}).submittedAt || '' }));
+
+        const rowMap = {};
+        rows.forEach(r => { rowMap[normName(r.id)] = r; });
+        const rosterKeys = roster.map(s => normName(s.name));
+        const ghosts = rows.filter(r => !rosterKeys.includes(normName(r.id)));
+
+        const fmt = (iso) => {
+            if (!iso) return '';
+            const d = new Date(iso);
+            if (isNaN(d.getTime())) return '';
+            return (d.getMonth() + 1) + '/' + d.getDate() + ' ' +
+                   String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+        };
+
+        let html = '';
+
+        // 요약
+        html += '<div class="stat-row">' +
+            '<div class="stat-box"><div class="num">' + roster.length + '</div><div class="lbl">명단</div></div>' +
+            '<div class="stat-box"><div class="num">' + rows.length + '</div><div class="lbl">응답 수</div></div>' +
+            '<div class="stat-box"><div class="num" style="color:' + (ghosts.length ? '#E53E3E' : 'inherit') + '">' +
+                ghosts.length + '</div><div class="lbl">명단 밖 응답</div></div>' +
+            '</div>';
+
+        // 명단에 없는 응답
+        if (ghosts.length > 0) {
+            html += '<div style="background:#FFF5F5; border:1.5px solid #FEB2B2; border-radius:12px; padding:12px 14px; margin-bottom:14px;">' +
+                '<div style="font-size:13px; font-weight:800; color:#C53030; margin-bottom:6px;">⚠️ 명단에 없는 이름의 응답 ' + ghosts.length + '건</div>' +
+                '<div style="font-size:12px; color:#9B2C2C; line-height:1.6; margin-bottom:10px;">' +
+                    '오타나 장난으로 들어온 응답입니다. 통계에 섞이므로 삭제하는 것을 권합니다.</div>';
+            ghosts.forEach(g => {
+                html += '<div style="display:flex; align-items:center; gap:8px; padding:7px 0; border-top:1px solid #FED7D7;">' +
+                    '<span style="flex:1; font-size:13px; font-weight:700; color:#742A2A;">' + escAttr(g.id) + '</span>' +
+                    '<span style="font-size:11px; color:#A0554F;">' + fmt(g.submittedAt) + '</span>' +
+                    '<button class="btn btn-danger btn-sm" data-action="deleteResponse" data-id="' + escAttr(g.id) + '" ' +
+                    'style="width:auto; margin-bottom:0; padding:5px 10px; font-size:12px;">삭제</button>' +
+                    '</div>';
+            });
+            html += '<button class="btn btn-danger btn-sm" data-action="purgeGhostResponses" ' +
+                'style="margin-top:10px; margin-bottom:0; font-size:12px;">🧹 명단 밖 응답 모두 삭제</button>' +
+                '</div>';
+        }
+
+        // 명단 학생별 응답 현황
+        if (roster.length === 0) {
+            html += '<div class="alert alert-warn">등록된 학생 명단이 없습니다.</div>';
+        } else {
+            html += '<div style="font-size:13px; font-weight:800; color:var(--text); margin-bottom:8px;">👥 학생별 응답 현황</div>';
+            roster.forEach(s => {
+                const r = rowMap[normName(s.name)];
+                html += '<div style="display:flex; align-items:center; gap:8px; padding:9px 4px; border-bottom:1px solid var(--line);">' +
+                    '<span style="width:30px; flex-shrink:0; font-size:12px; color:var(--muted); font-weight:700;">' + escAttr(s.no) + '</span>' +
+                    '<span style="flex:1; font-size:13px; font-weight:700; color:var(--text);">' + escAttr(s.name) + '</span>' +
+                    (r
+                        ? '<span style="font-size:11px; color:var(--muted);">' + fmt(r.submittedAt) + '</span>' +
+                          '<span style="font-size:11px; font-weight:800; color:var(--success); flex-shrink:0;">완료</span>' +
+                          '<button class="btn btn-danger btn-sm" data-action="deleteResponse" data-id="' + escAttr(r.id) + '" ' +
+                          'style="width:auto; margin-bottom:0; padding:5px 10px; font-size:12px; flex-shrink:0;">삭제</button>'
+                        : '<span style="font-size:11px; font-weight:800; color:var(--muted); flex-shrink:0;">미응답</span>')
+                    + '</div>';
+            });
+        }
+
+        // 전체 초기화
+        if (rows.length > 0) {
+            html += '<div class="divider"></div>' +
+                '<button class="btn btn-danger btn-sm" data-action="clearAllResponses" style="margin-bottom:0;">' +
+                '🗑️ 이 반의 응답 전체 삭제 (' + rows.length + '건)</button>' +
+                '<div style="font-size:11px; color:var(--muted); margin-top:6px; line-height:1.6;">' +
+                '설문을 처음부터 다시 받고 싶을 때 사용하세요. 명단은 그대로 유지됩니다.</div>';
+        }
+
+        el.innerHTML = html;
+    } catch (e) {
+        el.innerHTML = '<div class="alert alert-danger">오류: ' + e.message + '</div>';
+    }
+}
+
+// 응답 삭제 후 화면 갱신 (결과 통계까지 다시 계산)
+async function afterResponseChange() {
+    resetClassifyCache();
+    updateStats();
+    await loadResults();          // 결과 데이터 재수집 (내부에서 유형 탭으로 전환됨)
+    switchSubTab('subtab-manage'); // 다시 응답 관리 탭으로 복귀
+}
+
+async function deleteResponse(id) {
+    if (!id) return;
+    if (!confirm("'" + id + "' 학생의 응답을 삭제할까요?\n\n삭제하면 이 학생은 설문에 다시 참여할 수 있습니다.")) return;
+    try {
+        await deleteDoc(doc(db, "classes", currentClass, "responses", id));
+        await afterResponseChange();
+    } catch (e) { alert("삭제 오류: " + e.message); }
+}
+
+async function purgeGhostResponses() {
+    try {
+        const classSnap = await getDoc(doc(db, "classes", currentClass));
+        const rosterKeys = normalizeStudents(classSnap.exists() ? (classSnap.data().students || []) : [])
+                            .map(s => normName(s.name));
+        const resSnap = await getDocs(collection(db, "classes", currentClass, "responses"));
+        const targets = resSnap.docs.filter(d => !rosterKeys.includes(normName(d.id)));
+        if (targets.length === 0) return alert("명단에 없는 응답이 없습니다.");
+        if (!confirm("명단에 없는 응답 " + targets.length + "건을 모두 삭제할까요?\n\n" +
+                     targets.slice(0, 10).map(d => '· ' + d.id).join('\n') +
+                     (targets.length > 10 ? '\n외 ' + (targets.length - 10) + '건' : ''))) return;
+        for (const d of targets) await deleteDoc(d.ref);
+        alert(targets.length + "건을 삭제했습니다.");
+        await afterResponseChange();
+    } catch (e) { alert("삭제 오류: " + e.message); }
+}
+
+async function clearAllResponses() {
+    if (!confirm("이 반의 응답을 전부 삭제할까요?\n학생 명단은 그대로 남습니다.")) return;
+    if (!confirm("⚠️ 삭제한 응답은 복구할 수 없습니다.\n정말 전체 삭제할까요?")) return;
+    try {
+        const resSnap = await getDocs(collection(db, "classes", currentClass, "responses"));
+        for (const d of resSnap.docs) await deleteDoc(d.ref);
+        alert("응답을 모두 삭제했습니다. 학생들이 다시 참여할 수 있습니다.");
+        await afterResponseChange();
+    } catch (e) { alert("삭제 오류: " + e.message); }
 }
 
 // ─── 교우관계 유형 판별 ───────────────────────────────────
@@ -1904,6 +2206,73 @@ function renderIndividual(name) {
 }
 
 // ─── 학생 입장 ───────────────────────────────────────────
+// 설문 시작 공통 처리 (PIN 입장 · 반 코드 입장 · QR 입장 모두 이 함수를 사용)
+// name 은 반드시 '명단에 저장된 원본 이름' 이어야 한다.
+function startSurvey(code, name, data) {
+    currentClass = code; currentUser = name; classData = data;
+    // 설문 친구 목록: 이름만 추출, 본인 제외 (정규화 비교)
+    const normalized = normalizeStudents(data.students || []);
+    classStudents = normalized.filter(s => normName(s.name) !== normName(name)).map(s => s.name);
+    surveyAnswers = {}; currentQIndex = 0; isSubmitting = false;
+    surveyQuestions = QUESTIONS[data.grade];
+    showQuestion(0);
+    showScreen('screen-survey');
+}
+
+// ── ① PIN 입장 (업데이트 이후 생성된 반) ──
+let pickClassId = '', pickClassData = null, pickStudents = [];
+
+async function pinJoin() {
+    const pin = (document.getElementById('student-pin').value || '').trim();
+    if (!/^\d{4}$/.test(pin)) return alert("PIN 번호 4자리를 정확히 입력해 주세요.");
+    try {
+        const pinSnap = await getDoc(doc(db, "pins", pin));
+        if (!pinSnap.exists()) return alert("PIN 번호가 맞지 않습니다.\n선생님께 다시 여쭤보세요.");
+        const cid = pinSnap.data().classId;
+        const snap = await getDoc(doc(db, "classes", cid));
+        if (!snap.exists()) return alert("반 정보를 찾을 수 없습니다. 선생님께 문의해 주세요.");
+        const data = snap.data();
+        if (!data.surveyOpen) return alert("아직 설문이 열리지 않았습니다.\n선생님께서 시작하시면 참여할 수 있어요.");
+        pickStudents = normalizeStudents(data.students || []).slice().sort((a, b) => (a.no || 0) - (b.no || 0));
+        if (pickStudents.length === 0) return alert("아직 학생 명단이 등록되지 않았습니다. 선생님께 문의해 주세요.");
+        pickClassId = cid; pickClassData = data;
+        renderPickGrid();
+        showScreen('screen-student-pick');
+    } catch (e) { alert("오류: " + e.message); }
+}
+
+// 번호 격자 — 이름은 표시하지 않는다 (명단 노출 방지)
+function renderPickGrid() {
+    const label = document.getElementById('pick-class-label');
+    if (label) label.innerHTML = '<strong>' + escAttr(pickClassId) + '</strong> 설문이에요. 내 번호를 눌러 주세요.';
+    document.getElementById('pick-grid').innerHTML = pickStudents.map(s =>
+        '<button class="btn btn-secondary" data-action="pickStudent" data-no="' + escAttr(s.no) + '" ' +
+        'style="margin-bottom:0; padding:14px 0; font-size:17px; font-weight:800;">' + escAttr(s.no) + '</button>'
+    ).join('');
+}
+
+async function pickStudent(no) {
+    const s = pickStudents.find(x => String(x.no) === String(no));
+    if (!s || !pickClassId) return;
+    if (!confirm(s.no + "번 " + maskName(s.name) + " 학생이 맞나요?\n\n맞으면 [확인]을 눌러 주세요.")) return;
+    try {
+        const resSnap = await getDoc(doc(db, "classes", pickClassId, "responses", s.name));
+        if (resSnap.exists())
+            return alert("이미 설문에 참여했어요.\n다시 해야 한다면 선생님께 말씀드려 주세요.");
+        startSurvey(pickClassId, s.name, pickClassData);
+    } catch (e) { alert("오류: " + e.message); }
+}
+
+// ── ② 반 코드 + 이름 입장 (업데이트 이전에 만들어진 반 / PIN 분실 대비) ──
+function toggleLegacyJoin() {
+    const box = document.getElementById('legacy-join');
+    const tog = document.getElementById('legacy-toggle');
+    const open = box.style.display !== 'none';
+    box.style.display = open ? 'none' : 'block';
+    tog.textContent = open ? 'PIN을 못 받았어요 · 반 코드로 참여하기 ▾'
+                           : '반 코드로 참여하기 접기 ▴';
+}
+
 async function studentJoin() {
     const code = document.getElementById('student-class-code').value.trim();
     const name = document.getElementById('student-name').value.trim();
@@ -1913,16 +2282,14 @@ async function studentJoin() {
         if (!snap.exists()) return alert("존재하지 않는 반입니다. 반 코드를 다시 확인해주세요.");
         const data = snap.data();
         if (!data.surveyOpen) return alert("현재 설문이 열려 있지 않습니다. 선생님께 문의해 주세요.");
-        const resSnap = await getDoc(doc(db, "classes", code, "responses", name));
+        // ★ 명단 대조 — 명단에 없는 이름은 입장 불가
+        const matched = findStudentByName(normalizeStudents(data.students || []), name);
+        if (!matched)
+            return alert("명단에 없는 이름이에요.\n선생님께 등록된 이름을 확인해 주세요.\n\n(띄어쓰기 없이 정확히 입력해 보세요.)");
+        // 응답 문서 ID는 항상 명단의 원본 이름을 사용
+        const resSnap = await getDoc(doc(db, "classes", code, "responses", matched.name));
         if (resSnap.exists()) return alert("이미 설문에 참여했습니다. 한 번만 참여할 수 있어요.");
-        currentClass = code; currentUser = name; classData = data;
-        // 설문 친구 목록: 이름만 추출, 본인 제외
-        const normalized = normalizeStudents(data.students || []);
-        classStudents = normalized.filter(s => s.name !== name).map(s => s.name);
-        surveyAnswers = {}; currentQIndex = 0; isSubmitting = false;
-        surveyQuestions = QUESTIONS[data.grade];
-        showQuestion(0);
-        showScreen('screen-survey');
+        startSurvey(code, matched.name, data);
     } catch (e) { alert("오류: " + e.message); }
 }
 
@@ -2043,7 +2410,7 @@ async function loadSuperAdmin() {
 async function superDeleteClass(id) {
     if (!confirm("'" + id + "' 반을 삭제할까요?")) return;
     try {
-        await deleteDoc(doc(db, "classes", id));
+        await purgeClassCompletely(id);
         alert("삭제되었습니다.");
         loadSuperAdmin();
     } catch (e) { alert("삭제 오류: " + e.message); }
@@ -2067,7 +2434,7 @@ async function superPurgeOldClasses() {
     for (let i = 0; i < targets.length; i++) {
         if (prog) prog.textContent = '삭제 중... (' + (i + 1) + '/' + targets.length + ')';
         try {
-            await deleteDoc(doc(db, "classes", targets[i]));
+            await purgeClassCompletely(targets[i]);
             ok++;
         } catch (e) {
             failed.push(targets[i]);
@@ -2111,6 +2478,12 @@ document.addEventListener('click', async (e) => {
             case 'changePassword':   await changePassword(); break;
             case 'deleteClass':      await deleteClass(); break;
             case 'studentJoin':      await studentJoin(); break;
+            case 'pinJoin':          await pinJoin(); break;
+            case 'pickStudent':      await pickStudent(el.dataset.no); break;
+            case 'toggleLegacyJoin': toggleLegacyJoin(); break;
+            case 'deleteResponse':   await deleteResponse(el.dataset.id); break;
+            case 'purgeGhostResponses': await purgeGhostResponses(); break;
+            case 'clearAllResponses':   await clearAllResponses(); break;
             case 'nextQuestion':     await nextQuestion(); break;
             case 'skipQuestion':     skipQuestion(); break;
             case 'superDeleteClass': await superDeleteClass(el.dataset.id); break;
@@ -2161,6 +2534,17 @@ document.getElementById('login-class-name').addEventListener('keydown', (e) => {
 document.getElementById('login-password').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') teacherLogin();
 });
+
+// PIN 입력창 — 숫자만 허용 + 엔터키
+const pinInput = document.getElementById('student-pin');
+if (pinInput) {
+    pinInput.addEventListener('input', () => {
+        pinInput.value = pinInput.value.replace(/\D/g, '').slice(0, 4);
+    });
+    pinInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') pinJoin();
+    });
+}
 
 // 학생 입장 엔터키 (반 코드 / 이름 모두)
 document.getElementById('student-class-code').addEventListener('keydown', (e) => {
@@ -2250,29 +2634,31 @@ async function downloadPDF() {
         // ─────────────────────────────────────────────────
         // HTML 빌더 헬퍼
         // ─────────────────────────────────────────────────
+        // pdf-block      : 이 요소는 페이지 중간에서 잘리지 않는다
+        // pdf-keep-next  : 바로 다음 블록과 붙여서 한 페이지에 둔다 (제목 + 첫 카드)
         const h1 = (txt) =>
-            '<div style="font-size:20px;font-weight:800;color:#E8622A;border-left:5px solid #FF8A65;' +
+            '<div class="pdf-block pdf-keep-next" style="font-size:20px;font-weight:800;color:#E8622A;border-left:5px solid #FF8A65;' +
             'padding-left:12px;margin-bottom:14px;">' + txt + '</div>';
 
         const h2 = (txt, color) =>
-            '<div style="font-size:13px;font-weight:800;color:' + (color||'#2D2F5B') + ';margin-bottom:6px;">' + txt + '</div>';
+            '<div class="pdf-block pdf-keep-next" style="font-size:13px;font-weight:800;color:' + (color||'#2D2F5B') + ';margin-bottom:6px;">' + txt + '</div>';
 
         const chip = (txt, bg, fg) =>
             '<span style="display:inline-block;padding:3px 10px;border-radius:99px;font-size:12px;' +
             'font-weight:700;background:' + bg + ';color:' + fg + ';margin:2px;">' + txt + '</span>';
 
         const box = (content, bg, border) =>
-            '<div style="background:' + (bg||'#F4F6FF') + ';border-radius:10px;padding:12px 16px;' +
+            '<div class="pdf-block" style="background:' + (bg||'#F4F6FF') + ';border-radius:10px;padding:12px 16px;' +
             'margin-bottom:10px;' + (border ? 'border:1.5px solid '+border+';' : '') + '">' + content + '</div>';
 
         const divider = () =>
-            '<div style="height:1px;background:#E0E4FF;margin:18px 0;"></div>';
+            '<div class="pdf-block" style="height:1px;background:#E0E4FF;margin:18px 0;"></div>';
 
         // ─────────────────────────────────────────────────
         // 1. 표지 섹션
         // ─────────────────────────────────────────────────
         let html = '';
-        html += '<div style="background:linear-gradient(135deg,#FF8A65,#FFB347);border-radius:14px;' +
+        html += '<div class="pdf-block" style="background:linear-gradient(135deg,#FF8A65,#FFB347);border-radius:14px;' +
             'padding:32px 28px;margin-bottom:28px;color:#fff;">' +
             '<div style="font-size:24px;font-weight:800;margin-bottom:8px;">우리반 관계읽기</div>' +
             '<div style="font-size:15px;font-weight:700;margin-bottom:4px;">' + currentClass + '</div>' +
@@ -2281,7 +2667,7 @@ async function downloadPDF() {
             '</div>';
 
         // 통계 요약 박스
-        html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:28px;">' +
+        html += '<div class="pdf-block" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:28px;">' +
             [['전체 학생', resultStudents.length + '명'],
              ['응답 수',   resultRows.length + '명'],
              ['응답률',    rate + '%']].map(([l,v]) =>
@@ -2310,7 +2696,7 @@ async function downloadPDF() {
             if (students.length === 0) return;
             const m = TYPE_META[type];
             const c = TCM[type];
-            html += '<div style="border:1.5px solid ' + c.bg + ';border-radius:12px;padding:14px;margin-bottom:10px;">' +
+            html += '<div class="pdf-block" style="border:1.5px solid ' + c.bg + ';border-radius:12px;padding:14px;margin-bottom:10px;">' +
                 '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">' +
                 '<span style="font-size:20px;">' + m.icon + '</span>' +
                 '<span style="font-size:14px;font-weight:800;color:' + c.fg + ';">' + m.label + '</span>' +
@@ -2330,7 +2716,7 @@ async function downloadPDF() {
         const top5 = Object.entries(resultTally).sort((a,b)=>b[1]-a[1]).slice(0,5);
         if (top5.length > 0) {
             html += h2('🏆 가장 많이 선택된 친구 TOP 5');
-            html += '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:8px;">' +
+            html += '<div class="pdf-block" style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:8px;">' +
                 top5.map(([name, cnt], i) =>
                     '<div style="background:#FFF0EB;border-radius:10px;padding:10px;text-align:center;">' +
                     '<div style="font-size:18px;">' + ['🥇','🥈','🥉','4️⃣','5️⃣'][i] + '</div>' +
@@ -2362,8 +2748,8 @@ async function downloadPDF() {
             svgClone.style.cssText = 'width:100%;height:auto;border-radius:12px;background:#F4F6FF;';
             svgHtml = svgClone.outerHTML;
         }
-        html += '<div style="margin-bottom:10px;">' + svgHtml + '</div>';
-        html += '<div style="font-size:11px;color:#8589B0;margin-bottom:8px;">' +
+        html += '<div class="pdf-block" style="margin-bottom:10px;">' + svgHtml + '</div>';
+        html += '<div class="pdf-block" style="font-size:11px;color:#8589B0;margin-bottom:8px;">' +
             '원 크기 = 선택받은 횟수 &nbsp;·&nbsp; 원 색 진할수록 = 연결 중심형 &nbsp;·&nbsp; 초록 화살표 = 쌍방향 &nbsp;·&nbsp; 파란 화살표 = 일방향' +
             '</div>';
 
@@ -2386,7 +2772,7 @@ async function downloadPDF() {
             resultRows.forEach(r => { if(r.name===name) return; qs.forEach((q,i) => { if((r['q'+i]||[]).includes(name) && !selMe.includes(r.name)) selMe.push(r.name); }); });
             const mutual = iSel.filter(n => selMe.includes(n));
 
-            html += '<div style="border:1.5px solid ' + c.bg + ';border-radius:12px;padding:14px;margin-bottom:12px;">';
+            html += '<div class="pdf-block" style="border:1.5px solid ' + c.bg + ';border-radius:12px;padding:14px;margin-bottom:12px;">';
 
             // 학생 헤더
             html += '<div style="background:' + c.bg + ';border-radius:8px;padding:10px 14px;margin-bottom:10px;">' +
@@ -2469,26 +2855,81 @@ async function downloadPDF() {
         // 캔버스 px → mm 변환 비율
         const pxToMm = imgW / canvas.width;
         // 페이지당 캔버스 px 높이
-        const pageHeightPx = Math.round(contentH / pxToMm);
+        const pageHeightPx = Math.floor(contentH / pxToMm);
 
-        let offsetY = 0;
-        let isFirst = true;
+        // CSS px ↔ 캔버스 px 배율 (html2canvas scale 반영)
+        const cssToCanvas = canvas.width / wrap.offsetWidth;
+        const pageHeightCss = pageHeightPx / cssToCanvas;
 
-        while (offsetY < canvas.height) {
-            if (!isFirst) pdf.addPage();
-            isFirst = false;
+        // ── 페이지가 잘려도 되는 지점(=블록과 블록 사이)만 골라낸다 ──
+        const wrapTop = wrap.getBoundingClientRect().top;
+        const rawBlocks = Array.from(wrap.querySelectorAll('.pdf-block')).map(el => {
+            const r = el.getBoundingClientRect();
+            const st = window.getComputedStyle(el);
+            return {
+                top: r.top - wrapTop,
+                // 아래쪽 바깥 여백까지 포함해야 다음 블록과 겹치지 않는다
+                bottom: r.bottom - wrapTop + (parseFloat(st.marginBottom) || 0),
+                keepNext: el.classList.contains('pdf-keep-next')
+            };
+        }).sort((a, b) => a.top - b.top);
 
-            const sliceH = Math.min(pageHeightPx, canvas.height - offsetY);
+        // 제목(pdf-keep-next)은 다음 블록과 하나로 묶는다
+        const units = [];
+        for (let i = 0; i < rawBlocks.length; i++) {
+            const u = { top: rawBlocks[i].top, bottom: rawBlocks[i].bottom };
+            while (rawBlocks[i].keepNext && i + 1 < rawBlocks.length) {
+                i++;
+                u.bottom = Math.max(u.bottom, rawBlocks[i].bottom);
+            }
+            units.push(u);
+        }
+
+        const totalCss = wrap.scrollHeight;
+        const cutsCss = [0];
+        let start = 0;
+        for (const u of units) {
+            if (u.bottom - start <= pageHeightCss) continue;  // 현재 페이지에 다 들어감
+            if (u.top - start > 4) {                          // 이 블록 앞에서 페이지를 넘긴다
+                start = u.top;
+                cutsCss.push(start);
+            }
+            // 블록 하나가 한 페이지보다 큰 경우(대형 그래프 등)에만 강제로 분할
+            while (u.bottom - start > pageHeightCss) {
+                start += pageHeightCss;
+                cutsCss.push(start);
+            }
+        }
+        cutsCss.push(totalCss);
+
+        // 캔버스 좌표로 변환 + 중복/역전 제거
+        const cuts = [];
+        cutsCss.forEach(v => {
+            const p = Math.min(Math.round(v * cssToCanvas), canvas.height);
+            if (cuts.length === 0 || p > cuts[cuts.length - 1] + 1) cuts.push(p);
+        });
+        if (cuts[cuts.length - 1] < canvas.height) cuts.push(canvas.height);
+
+        for (let p = 0; p < cuts.length - 1; p++) {
+            if (p > 0) pdf.addPage();
+
+            const offsetY = cuts[p];
+            const sliceH  = Math.min(cuts[p + 1] - offsetY, pageHeightPx);
+            if (sliceH <= 0) continue;
+
             const sliceCanvas = document.createElement('canvas');
             sliceCanvas.width  = canvas.width;
             sliceCanvas.height = sliceH;
-            sliceCanvas.getContext('2d').drawImage(
+            const sctx = sliceCanvas.getContext('2d');
+            sctx.fillStyle = '#ffffff';
+            sctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
+            sctx.drawImage(
                 canvas, 0, offsetY, canvas.width, sliceH,
                 0, 0, canvas.width, sliceH
             );
 
-            const sliceImg   = sliceCanvas.toDataURL('image/png');
-            const sliceH_mm  = Math.min(sliceH * pxToMm, contentH); // contentH 초과 방지
+            const sliceImg  = sliceCanvas.toDataURL('image/png');
+            const sliceH_mm = Math.min(sliceH * pxToMm, contentH);
 
             // 이미지: 좌우·상단 여백 적용
             pdf.addImage(sliceImg, 'PNG', MARGIN, MARGIN, imgW, sliceH_mm);
@@ -2508,8 +2949,6 @@ async function downloadPDF() {
             pdf.setDrawColor(224, 228, 255);
             pdf.setLineWidth(0.2);
             pdf.line(MARGIN, PH - FOOTER_H, PW - MARGIN, PH - FOOTER_H);
-
-            offsetY += pageHeightPx;
         }
 
         const fileName = currentClass + '_교우관계분석_' + new Date().toISOString().split('T')[0] + '.pdf';
@@ -2717,10 +3156,12 @@ async function applyQueryParams() {
     const name = params.get('name');
     if (!cls || !name) return; // 파라미터 없으면 일반 홈 화면 유지
 
-    // 학생 로그인 화면으로 이동 후 입력값 채우기
+    // 학생 로그인 화면으로 이동 후 반 코드 입력란에 값 채우기 (실패 시 수동 참여용)
     showScreen('screen-student-login');
     document.getElementById('student-class-code').value = cls;
     document.getElementById('student-name').value = name;
+    const legacyBox = document.getElementById('legacy-join');
+    if (legacyBox) legacyBox.style.display = 'block';
 
     // Firebase가 준비될 때까지 잠깐 대기 후 자동 참여 시도
     // (모듈 스크립트 defer 실행이므로 Firebase는 이미 초기화 완료)
@@ -2735,20 +3176,20 @@ async function applyQueryParams() {
             // 설문이 아직 열리지 않은 경우 — 입력만 채운 채 대기
             return;
         }
-        const resSnap = await getDoc(doc(db, "classes", cls, "responses", name));
+        // ★ 명단 대조 — QR이 오래되어 명단에서 빠진 이름이면 입장 불가
+        const matched = findStudentByName(normalizeStudents(data.students || []), name);
+        if (!matched) {
+            alert("명단에 없는 이름입니다.\n선생님께 확인해 주세요.");
+            return;
+        }
+        const resSnap = await getDoc(doc(db, "classes", cls, "responses", matched.name));
         if (resSnap.exists()) {
             alert("이미 설문에 참여했습니다.");
             showScreen('screen-home');
             return;
         }
         // 모든 조건 통과 → 자동으로 설문 시작
-        currentClass = cls; currentUser = name; classData = data;
-        const normalized = normalizeStudents(data.students || []);
-        classStudents = normalized.filter(s => s.name !== name).map(s => s.name);
-        surveyAnswers = {}; currentQIndex = 0; isSubmitting = false;
-        surveyQuestions = QUESTIONS[data.grade];
-        showQuestion(0);
-        showScreen('screen-survey');
+        startSurvey(cls, matched.name, data);
     } catch (e) {
         // Firebase 오류 시 그냥 입력 채운 화면에서 대기 (수동으로 버튼 누르면 됨)
         console.warn('QR 자동입장 오류:', e.message);
