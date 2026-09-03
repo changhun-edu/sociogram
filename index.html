@@ -612,6 +612,10 @@
     <div class="card">
         <div class="card-title">✨ 새 반 만들기</div>
         <p style="font-size:12px; color:var(--danger); margin-bottom:14px;">※ 기기당 하루 5개 반까지 생성 가능합니다.</p>
+        <div class="alert alert-warn" style="font-weight:600; line-height:1.6;">
+            📌 생성 후 <strong>3개월</strong>이 지난 반은 서버 관리를 위해 자동으로 삭제될 수 있습니다.<br>
+            결과 자료가 필요하면 미리 <strong>PDF·엑셀로 저장</strong>해 주세요.
+        </div>
         <div class="input-wrap">
             <label>반 이름 (학생 참여 코드로 사용됩니다)</label>
             <input type="text" id="create-class-name" placeholder="예: 3학년2반">
@@ -895,7 +899,14 @@
 <div id="screen-superadmin" class="screen">
     <div class="card">
         <div class="card-title" style="color:var(--danger)">⚠️ 총괄 관리자</div>
+        <div class="alert alert-warn" style="font-weight:600; line-height:1.6;">
+            생성 후 <strong>3개월</strong>이 지난 반은 정리 대상입니다.<br>
+            아래 <strong>[3개월 경과 반 일괄 삭제]</strong> 버튼으로 한 번에 정리할 수 있습니다.
+        </div>
         <div id="superadmin-list" style="max-height:400px; overflow-y:auto;"></div>
+        <div id="purge-progress" style="display:none; font-size:13px; color:var(--muted); text-align:center; margin-top:10px;"></div>
+        <button id="btn-purge-old" class="btn btn-danger" data-action="superPurgeOldClasses"
+                style="margin-top:12px; display:none">🧹 3개월 경과 반 일괄 삭제</button>
         <button class="btn btn-gray" data-action="goto" data-screen="screen-home" style="margin-top:12px">닫기</button>
     </div>
 </div>
@@ -1032,7 +1043,7 @@ async function createClass() {
         const dateArr = stored2 ? JSON.parse(stored2) : [];
         dateArr.push(today);
         localStorage.setItem('classCreatedDates', JSON.stringify(dateArr));
-        alert("반 [" + name + "]이 생성되었습니다!\n학생들에게 반 이름(코드)을 알려주세요.");
+        alert("반 [" + name + "]이 생성되었습니다!\n학생들에게 반 이름(코드)을 알려주세요.\n\n※ 생성 후 3개월이 지나면 자동으로 삭제될 수 있으니\n   결과 자료는 미리 저장해 주세요.");
         document.getElementById('create-class-name').value = '';
         document.getElementById('create-password').value = '';
         showScreen('screen-teacher-menu');
@@ -1967,8 +1978,33 @@ async function submitSurvey() {
 }
 
 // ─── 총괄 관리자 ─────────────────────────────────────────
+const AUTO_DELETE_MONTHS = 3;      // 보관 기간(개월)
+let expiredClassIds = [];          // 3개월 경과 반 id 목록
+
+// 생성일 기준 만료 정보 계산
+function getExpiryInfo(createdAt) {
+    if (!createdAt) return { known: false, expired: false };
+    const created = new Date(createdAt);
+    if (isNaN(created.getTime())) return { known: false, expired: false };
+    const due = new Date(created.getTime());
+    due.setMonth(due.getMonth() + AUTO_DELETE_MONTHS);
+    const remainDays = Math.ceil((due.getTime() - Date.now()) / 86400000);
+    return { known: true, created, due, remainDays, expired: remainDays <= 0 };
+}
+
+function fmtDate(d) {
+    return d.getFullYear() + '.' +
+           String(d.getMonth() + 1).padStart(2, '0') + '.' +
+           String(d.getDate()).padStart(2, '0');
+}
+
 async function loadSuperAdmin() {
     const el = document.getElementById('superadmin-list');
+    const purgeBtn = document.getElementById('btn-purge-old');
+    const prog = document.getElementById('purge-progress');
+    if (prog) { prog.style.display = 'none'; prog.textContent = ''; }
+    expiredClassIds = [];
+    if (purgeBtn) { purgeBtn.style.display = 'none'; purgeBtn.disabled = false; }
     el.innerHTML = '<div class="loading">불러오는 중...</div>';
     try {
         const snap = await getDocs(collection(db, "classes"));
@@ -1976,11 +2012,31 @@ async function loadSuperAdmin() {
         let html = '';
         snap.forEach(d => {
             const data = d.data();
-            html += '<div class="list-item"><div><strong>' + d.id + '</strong> <span class="badge badge-blue">' + (GRADE_LABEL[data.grade] || '') + '</span><br>' +
-                '<span style="font-size:12px;color:var(--muted)">학생: ' + (data.students || []).length + '명 / 설문: ' + (data.surveyOpen ? '진행중' : '중지') + '</span></div>' +
+            const info = getExpiryInfo(data.createdAt);
+            let dateTxt, tag = '';
+            if (!info.known) {
+                dateTxt = '생성일 정보 없음';
+            } else if (info.expired) {
+                dateTxt = '생성: ' + fmtDate(info.created) + ' (' + Math.abs(info.remainDays) + '일 경과)';
+                tag = '<span class="badge" style="background:#FFEBEE;color:#C62828">3개월 경과</span>';
+                expiredClassIds.push(d.id);
+            } else {
+                dateTxt = '생성: ' + fmtDate(info.created) + ' (삭제까지 ' + info.remainDays + '일)';
+            }
+            html += '<div class="list-item"><div><strong>' + d.id + '</strong> <span class="badge badge-blue">' + (GRADE_LABEL[data.grade] || '') + '</span> ' + tag + '<br>' +
+                '<span style="font-size:12px;color:var(--muted)">학생: ' + (data.students || []).length + '명 / 설문: ' + (data.surveyOpen ? '진행중' : '중지') + '</span><br>' +
+                '<span style="font-size:12px;color:var(--muted)">' + dateTxt + '</span></div>' +
                 '<button class="btn btn-danger btn-sm" data-action="superDeleteClass" data-id="' + d.id + '">삭제</button></div>';
         });
         el.innerHTML = html;
+        if (purgeBtn) {
+            if (expiredClassIds.length > 0) {
+                purgeBtn.style.display = '';
+                purgeBtn.textContent = '🧹 3개월 경과 반 일괄 삭제 (' + expiredClassIds.length + '개)';
+            } else {
+                purgeBtn.style.display = 'none';
+            }
+        }
     } catch (e) { el.innerHTML = '<div class="alert alert-danger">데이터 로드 실패</div>'; }
 }
 
@@ -1991,6 +2047,34 @@ async function superDeleteClass(id) {
         alert("삭제되었습니다.");
         loadSuperAdmin();
     } catch (e) { alert("삭제 오류: " + e.message); }
+}
+
+// 3개월 경과 반 일괄 삭제
+async function superPurgeOldClasses() {
+    if (expiredClassIds.length === 0) return alert("3개월이 지난 반이 없습니다.");
+    const targets = expiredClassIds.slice();
+    const preview = targets.slice(0, 15).join(', ') + (targets.length > 15 ? ' 외 ' + (targets.length - 15) + '개' : '');
+    if (!confirm("생성 후 3개월이 지난 반 " + targets.length + "개를 삭제합니다.\n\n" + preview + "\n\n계속할까요?")) return;
+    if (!confirm("⚠️ 삭제된 반과 설문 결과는 복구할 수 없습니다.\n정말 " + targets.length + "개를 삭제할까요?")) return;
+
+    const purgeBtn = document.getElementById('btn-purge-old');
+    const prog = document.getElementById('purge-progress');
+    if (purgeBtn) { purgeBtn.disabled = true; purgeBtn.textContent = '삭제 중...'; }
+    if (prog) { prog.style.display = ''; }
+
+    let ok = 0;
+    const failed = [];
+    for (let i = 0; i < targets.length; i++) {
+        if (prog) prog.textContent = '삭제 중... (' + (i + 1) + '/' + targets.length + ')';
+        try {
+            await deleteDoc(doc(db, "classes", targets[i]));
+            ok++;
+        } catch (e) {
+            failed.push(targets[i]);
+        }
+    }
+    alert("일괄 삭제 완료\n삭제됨: " + ok + "개" + (failed.length ? "\n실패: " + failed.length + "개 (" + failed.join(', ') + ")" : ""));
+    await loadSuperAdmin();
 }
 
 // ════════════════════════════════════════════════════════
@@ -2030,6 +2114,7 @@ document.addEventListener('click', async (e) => {
             case 'nextQuestion':     await nextQuestion(); break;
             case 'skipQuestion':     skipQuestion(); break;
             case 'superDeleteClass': await superDeleteClass(el.dataset.id); break;
+            case 'superPurgeOldClasses': await superPurgeOldClasses(); break;
             default: break;
         }
     } catch (err) {
