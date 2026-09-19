@@ -3,9 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>우리반 관계읽기</title>
-    <link href="https://fonts.googleapis.com/css2?family=Nanum+Round+Square:wght@400;700;800&display=swap" rel="stylesheet">
+    <title>우리반 친구지도</title>
     <style>
+        /* 글꼴: 나눔스퀘어라운드 (ⓒ NAVER Corp., SIL Open Font License 1.1) — 네이버 한글한글아름답게 공식 웹폰트 */
+        @font-face { font-family: 'Nanum Round Square'; font-weight: 400; font-display: swap;
+            src: url(https://hangeul.pstatic.net/hangeul_static/webfont/NanumSquareRound/NanumSquareRoundR.woff2) format('woff2'), url(https://hangeul.pstatic.net/hangeul_static/webfont/NanumSquareRound/NanumSquareRoundR.woff) format('woff'); }
+        @font-face { font-family: 'Nanum Round Square'; font-weight: 700; font-display: swap;
+            src: url(https://hangeul.pstatic.net/hangeul_static/webfont/NanumSquareRound/NanumSquareRoundB.woff2) format('woff2'), url(https://hangeul.pstatic.net/hangeul_static/webfont/NanumSquareRound/NanumSquareRoundB.woff) format('woff'); }
+        @font-face { font-family: 'Nanum Round Square'; font-weight: 800; font-display: swap;
+            src: url(https://hangeul.pstatic.net/hangeul_static/webfont/NanumSquareRound/NanumSquareRoundEB.woff2) format('woff2'), url(https://hangeul.pstatic.net/hangeul_static/webfont/NanumSquareRound/NanumSquareRoundEB.woff) format('woff'); }
+
         :root {
             /* ── 포인트 1: 따뜻한 복숭아 오렌지 (메인 강조) ── */
             --primary: #FF8A65;
@@ -455,8 +462,8 @@
 <header class="app-header" data-action="goto" data-screen="screen-home" style="cursor:pointer;">
     <div class="app-header-inner">
         <div>
-            <div class="logo">우리반 <span>관계읽기</span></div>
-            <div class="sub">AI기반 교우관계 가이드 서비스</div>
+            <div class="logo">우리반 <span>친구지도</span></div>
+            <div class="sub">교우관계 설문 · 소시오그램 도구</div>
         </div>
     </div>
 </header>
@@ -527,7 +534,7 @@
         <div class="hero-flow">
             <div class="hf-step">📝 학생 설문</div>
             <div class="hf-arrow">→</div>
-            <div class="hf-step">🧠 AI 분석</div>
+            <div class="hf-step">📊 관계 분석</div>
             <div class="hf-arrow">→</div>
             <div class="hf-step">📄 PDF 저장</div>
         </div>
@@ -566,8 +573,8 @@
             <div class="feat-card">
                 <div class="feat-icon c2">🧠</div>
                 <div class="feat-card-body">
-                    <h4>AI가 관계를 읽어드려요</h4>
-                    <p>리더형·중재자형·소외 위험 등 유형별 맞춤 지도 방법을 제공해요.</p>
+                    <h4>관계를 한눈에 읽어드려요</h4>
+                    <p>설문 응답을 분석해 5가지 교우관계 유형과 유형별 지도 방법을 제공해요.</p>
                 </div>
             </div>
             <div class="feat-card">
@@ -590,8 +597,13 @@
     <!-- 신뢰 뱃지 — 색깔 배경 -->
     <div class="trust-bar">
         <div class="trust-badge tb1">🔒 선생님만 볼 수 있어요</div>
-        <div class="trust-badge tb2">👥 익명 보장</div>
+        <div class="trust-badge tb2">👥 친구에게 공개 안 돼요</div>
         <div class="trust-badge tb3">✅ 완전 무료예요</div>
+    </div>
+
+    <div style="text-align:center; margin:18px 0 8px;">
+        <span data-action="goto" data-screen="screen-credits"
+              style="font-size:12px; color:var(--muted); text-decoration:underline; cursor:pointer;">저작권 및 라이선스 안내</span>
     </div>
 
 </div>
@@ -785,7 +797,7 @@
             <div class="card">
                 <div class="card-title">🕸️ 전체 교우관계 그래프</div>
                 <div class="alert alert-info" style="font-size:12px;">
-                    원 크기 = 선택받은 횟수 · 원 색상 진할수록 = 중간다리 역할 큼 · 화살표 = 선택 방향
+                    원 크기 = 선택받은 횟수 · 원 색상 진할수록 = 친구 사이를 잇는 역할 큼 · 화살표 = 선택 방향
                 </div>
                 <div id="graph-area" style="width:100%; height:420px; position:relative; background:#F4F6FF; border-radius:12px; overflow:hidden;"></div>
                 <div id="graph-legend" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; font-size:12px;"></div>
@@ -964,6 +976,39 @@
         <button id="btn-purge-old" class="btn btn-danger" data-action="superPurgeOldClasses"
                 style="margin-top:12px; display:none">🧹 3개월 경과 반 일괄 삭제</button>
         <button class="btn btn-gray" data-action="superLogout" style="margin-top:12px">로그아웃 후 닫기</button>
+    </div>
+</div>
+
+<!-- 저작권 및 라이선스 -->
+<div id="screen-credits" class="screen">
+    <div class="back-btn" data-action="goto" data-screen="screen-home">← 처음으로</div>
+    <div class="card" style="font-size:13px; line-height:1.75; color:var(--text);">
+        <div class="card-title">📜 저작권 및 라이선스 안내</div>
+
+        <div style="font-weight:800; margin-bottom:4px;">우리반 친구지도</div>
+        <div style="color:var(--muted); margin-bottom:14px;">ⓒ 2026 최창훈. 프로그램의 화면 구성, 설문 문항, 분석 방식과 안내 문구의 저작권은 제작자에게 있습니다.</div>
+
+        <div style="font-weight:800; margin-bottom:4px;">분석 결과 이용 안내</div>
+        <div style="color:var(--muted); margin-bottom:14px;">교우관계 유형 분석은 설문 응답을 통계적으로 정리한 참고 자료이며, 심리 진단이나 평가가 아닙니다. 학생 이해와 지도를 위한 보조 자료로만 활용해 주세요.<br>
+            유형 분류는 모레노(J. L. Moreno)의 소시오메트리(소시오그램)와 사회연결망분석(SNA)의 일반 개념을 바탕으로 하며, 유형 이름과 해설·지도 방법은 제작자가 작성했습니다.</div>
+
+        <div style="font-weight:800; margin-bottom:4px;">글꼴</div>
+        <div style="color:var(--muted); margin-bottom:14px;">나눔스퀘어라운드 — ⓒ NAVER Corp. · SIL Open Font License 1.1</div>
+
+        <div style="font-weight:800; margin-bottom:4px;">사용한 오픈소스</div>
+        <ul style="color:var(--muted); margin:0 0 14px 18px; padding:0;">
+            <li>Firebase JavaScript SDK — ⓒ Google LLC · Apache License 2.0</li>
+            <li>html2canvas — ⓒ Niklas von Hertzen · MIT License</li>
+            <li>jsPDF — ⓒ James Hall, yWorks GmbH 외 · MIT License</li>
+            <li>SheetJS Community Edition — ⓒ SheetJS LLC · Apache License 2.0</li>
+            <li>QRCode.js — ⓒ davidshimjs · MIT License</li>
+        </ul>
+
+        <div style="font-weight:800; margin-bottom:4px;">상표</div>
+        <div style="color:var(--muted); margin-bottom:6px;">QR코드는 (주)덴소웨이브(DENSO WAVE INCORPORATED)의 등록상표입니다.</div>
+        <div style="color:var(--muted); margin-bottom:6px;">이모지는 이용하는 기기의 운영체제 글꼴로 표시됩니다.</div>
+
+        <button class="btn btn-gray" data-action="goto" data-screen="screen-home" style="margin-top:12px">닫기</button>
     </div>
 </div>
 
@@ -1896,7 +1941,7 @@ function classifyStudent(name, allNames) {
 
 const TYPE_META = {
     alone: {
-        icon: '🌙', label: '독립형 (자발적, 비자발적)',
+        icon: '🌙', label: '독립형',
         color: '#E2E3E5', text: '#383D41', urgent: true,
         badge: '성향 확인 필요',
         desc: '또래와의 직접적인 연결이 거의 나타나지 않는 유형입니다. 추가 설문이나 면담을 통해 스스로 혼자 있는 것을 선호하는 경우(자발적)인지, 관계 형성의 어려움으로 인해 연결이 부족한 경우(비자발적)인지 살펴볼 필요가 있습니다. 특히 비자발적 단절의 경우 지속적인 관찰과 세심한 지원이 필요합니다.',
@@ -1923,7 +1968,7 @@ const TYPE_META = {
         caution: null
     },
     popular: {
-        icon: '⭐', label: '관심 집중형 (긍정, 부정)',
+        icon: '⭐', label: '관심 집중형',
         color: '#FFF0EB', text: '#C04A1A', urgent: false,
         badge: '영향력 방향 확인',
         desc: '여러 친구에게 자주 언급되거나 선택되는 유형입니다. 학급 안에서 의견 형성이나 분위기에 영향을 줄 가능성이 높습니다. 선택 횟수만으로 긍정적인 역할을 한다고 판단하기 어렵기 때문에, 관계의 정서적 분위기와 내용을 함께 분석하여 긍정적 영향인지 부정적 영향인지 확인할 필요가 있습니다.',
@@ -1932,7 +1977,7 @@ const TYPE_META = {
         caution: '학급 여론을 빠르게 좌우할 수 있으므로 관계의 정서적 분위기와 내용을 함께 지속 관찰하세요.'
     },
     connector: {
-        icon: '🌐', label: '연결 중심형 (긍정, 부정)',
+        icon: '🌐', label: '연결 중심형',
         color: '#D1ECF1', text: '#0C5460', urgent: false,
         badge: '학급 관계망 핵심',
         desc: '다양한 친구들과 폭넓게 연결되어 있으며, 친구들 사이를 이어 주는 역할을 하는 유형입니다. 학급 내 관계망을 넓히고 소외를 줄이는 데 긍정적으로 작용할 수 있습니다. 다만 관계의 폭이 넓다고 해서 항상 긍정적인 역할만 하는 것은 아니므로, 상호작용의 정서와 내용 분석을 통해 긍정적 연결인지 부정적 연결인지 확인하는 것이 필요합니다.',
@@ -2067,7 +2112,7 @@ function renderGraph() {
     const maxTally = Math.max(1, ...names.map(n => resultTally[n] || 0));
     const nodeR = n => 12 + ((resultTally[n] || 0) / maxTally) * 14;
 
-    // 중간다리 지수 (진하기)
+    // 연결(매개) 지수 (진하기)
     const bridgeScore = {};
     names.forEach(n => {
         const nb = names.filter(m => resultLinks.some(l => l.from === n && l.to === m));
@@ -2139,7 +2184,7 @@ function renderGraph() {
         '<span style="display:flex;align-items:center;gap:4px;"><svg width="28" height="10"><line x1="0" y1="5" x2="22" y2="5" stroke="#FF8A65" stroke-width="1.5" opacity=".6"/></svg>일방향</span>' +
         '<span style="display:flex;align-items:center;gap:4px;"><svg width="16" height="16"><circle cx="8" cy="8" r="7" fill="#E8EAFF"/></svg>선택 적음</span>' +
         '<span style="display:flex;align-items:center;gap:4px;"><svg width="16" height="16"><circle cx="8" cy="8" r="7" fill="#FF8A65"/></svg>선택 많음</span>' +
-        '<span style="display:flex;align-items:center;gap:4px;"><svg width="16" height="16"><circle cx="8" cy="8" r="7" fill="#2D1D96"/></svg>연결 중심형(중간다리)</span>';
+        '<span style="display:flex;align-items:center;gap:4px;"><svg width="16" height="16"><circle cx="8" cy="8" r="7" fill="#2D1D96"/></svg>연결 중심형</span>';
 }
 
 // ─── 학생 개인별 분석 ────────────────────────────────────
@@ -2853,7 +2898,7 @@ async function downloadPDF() {
         let html = '';
         html += '<div class="pdf-block" style="background:linear-gradient(135deg,#FF8A65,#FFB347);border-radius:14px;' +
             'padding:32px 28px;margin-bottom:28px;color:#fff;">' +
-            '<div style="font-size:24px;font-weight:800;margin-bottom:8px;">우리반 관계읽기</div>' +
+            '<div style="font-size:24px;font-weight:800;margin-bottom:8px;">우리반 친구지도</div>' +
             '<div style="font-size:15px;font-weight:700;margin-bottom:4px;">' + currentClass + '</div>' +
             '<div style="font-size:13px;opacity:.85;">' + gradeMap[classData.grade] + ' · ' +
             new Date().toLocaleDateString('ko-KR') + ' 기준</div>' +
@@ -3131,7 +3176,7 @@ async function downloadPDF() {
             const pageNum = pdf.internal.getCurrentPageInfo().pageNumber;
             pdf.setFontSize(8);
             pdf.setTextColor(180, 180, 200);
-            pdf.text('우리반 관계읽기  ·  ' + currentClass, MARGIN, PH - 5);
+            pdf.text('우리반 친구지도  ·  ' + currentClass, MARGIN, PH - 5);
             pdf.text(String(pageNum), PW - MARGIN, PH - 5, { align: 'right' });
 
             // 상단 여백 영역 흰색으로 덮어 깔끔하게 처리
