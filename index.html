@@ -630,7 +630,7 @@
         </div>
         <div class="input-wrap">
             <label>관리자 비밀번호</label>
-            <input type="password" id="create-password" placeholder="비밀번호 설정">
+            <input type="password" id="create-password" placeholder="6자 이상으로 설정" autocomplete="new-password">
         </div>
         <button class="btn btn-primary" data-action="createClass">반 생성하기 →</button>
         <button class="btn btn-gray" data-action="goto" data-screen="screen-teacher-menu">취소</button>
@@ -842,7 +842,8 @@
             <div class="card-title">⚙️ 설정</div>
             <div class="input-wrap">
                 <label>비밀번호 변경</label>
-                <input type="password" id="new-password" placeholder="새 비밀번호">
+                <input type="password" id="new-password" placeholder="새 비밀번호 (6자 이상)" autocomplete="new-password">
+                <div style="font-size:11px; color:var(--muted); margin-top:6px; line-height:1.6;">변경하면 다른 기기에서 접속 중인 관리 권한은 모두 해제됩니다.</div>
             </div>
             <button class="btn btn-secondary btn-sm" data-action="changePassword" style="margin-bottom:12px">변경하기</button>
             <div class="divider"></div>
@@ -953,11 +954,16 @@
             생성 후 <strong>3개월</strong>이 지난 반은 정리 대상입니다.<br>
             아래 <strong>[3개월 경과 반 일괄 삭제]</strong> 버튼으로 한 번에 정리할 수 있습니다.
         </div>
+        <div id="migrate-box" style="display:none; background:#FFF8E1; border:1.5px solid #FFD54F; border-radius:12px; padding:12px 14px; margin-bottom:12px;">
+            <div style="font-size:13px; font-weight:800; color:#8D6E00; margin-bottom:4px;">🔐 보안 전환이 필요한 기존 반 <span id="migrate-count"></span></div>
+            <div style="font-size:12px; color:#7A5C00; line-height:1.6; margin-bottom:8px;">비밀번호가 평문으로 저장된 예전 반입니다. 전환하면 비밀번호는 해시로 옮겨지고, 선생님들은 쓰던 비밀번호로 그대로 접속합니다.</div>
+            <button class="btn btn-accent btn-sm" data-action="superMigrateLegacy" style="margin-bottom:0;">기존 반 일괄 보안 전환</button>
+        </div>
         <div id="superadmin-list" style="max-height:400px; overflow-y:auto;"></div>
         <div id="purge-progress" style="display:none; font-size:13px; color:var(--muted); text-align:center; margin-top:10px;"></div>
         <button id="btn-purge-old" class="btn btn-danger" data-action="superPurgeOldClasses"
                 style="margin-top:12px; display:none">🧹 3개월 경과 반 일괄 삭제</button>
-        <button class="btn btn-gray" data-action="goto" data-screen="screen-home" style="margin-top:12px">닫기</button>
+        <button class="btn btn-gray" data-action="superLogout" style="margin-top:12px">로그아웃 후 닫기</button>
     </div>
 </div>
 
@@ -966,7 +972,9 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 import { getFirestore, doc, setDoc, getDoc, updateDoc, deleteDoc,
-         collection, getDocs } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+         collection, getDocs, writeBatch, deleteField } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+import { getAuth, signInAnonymously, onAuthStateChanged, GoogleAuthProvider,
+         signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyDveZo-Qbztbmnc-kR5NGFvBuCddeOlQpY",
@@ -978,23 +986,17 @@ const firebaseConfig = {
     measurementId: "G-6H19PED7GC"
 };
 /*
-[권장 Firestore 보안 규칙]
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /classes/{classId} {
-      allow read, write: if true;
-      match /responses/{document=**} {
-        allow read, write: if true;
-      }
-    }
-  }
-}
+[보안 구조]
+- firebaseConfig 값은 공개되어도 괜찮습니다. 실제 접근 통제는 Firestore 보안 규칙(firestore.rules)이 합니다.
+- 교사·학생: 익명 로그인(개인정보 수집 없음). 교사는 반 비밀번호를 SHA-256 해시로 대조해 관리자 권한을 얻습니다.
+- 반 비밀번호 해시는 classSecrets 컬렉션에 저장되며, 누구도 읽을 수 없습니다(규칙에서만 대조).
+- 총괄 관리자: 보안 규칙에 등록된 구글 계정으로만 로그인할 수 있습니다.
 */
-let app, db;
+let app, db, auth;
 try {
     app = initializeApp(firebaseConfig);
     db = getFirestore(app);
+    auth = getAuth(app);
 } catch (e) {
     console.error('Firebase 초기화 실패:', e);
     document.body.innerHTML = '<div style="padding:40px;text-align:center;font-family:sans-serif;">' +
@@ -1068,16 +1070,58 @@ function maskName(n) {
 }
 // HTML 속성 삽입용 이스케이프
 function escAttr(s) {
-    return String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/'/g, '&#39;');
 }
+// ─── 인증 · 보안 헬퍼 ────────────────────────────────────
+// 첫 인증 상태 확인이 끝날 때까지 기다린 뒤, 로그인이 안 되어 있으면 익명 로그인
+const authInitPromise = new Promise(res => {
+    const unsub = onAuthStateChanged(auth, u => { unsub(); res(u); });
+});
+async function ensureAuth() {
+    await authInitPromise;
+    if (auth.currentUser) return auth.currentUser;
+    try {
+        return (await signInAnonymously(auth)).user;
+    } catch (e) {
+        if (e && (e.code === 'auth/admin-restricted-operation' || e.code === 'auth/operation-not-allowed'))
+            throw new Error('Firebase 콘솔에서 익명 로그인이 활성화되지 않았습니다. (Authentication → 로그인 방법 → 익명)');
+        throw e;
+    }
+}
+function uid() { return auth.currentUser ? auth.currentUser.uid : ''; }
+function isPermErr(e) { return !!e && (e.code === 'permission-denied' || /insufficient permissions/i.test(e.message || '')); }
+
+// 반 비밀번호 해시 (반 이름을 솔트로 사용) — 평문은 서버에 저장하지 않는다
+async function hashPw(cid, pwd) {
+    const data = new TextEncoder().encode('sociogram-v1|' + cid + '|' + pwd);
+    const buf = await crypto.subtle.digest('SHA-256', data);
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+const MIN_PW_LEN = 6;
+
+// 명단 저장 — 보안 규칙이 응답 이름을 대조할 수 있도록 studentNames 도 함께 저장
+function saveStudents() {
+    return updateDoc(doc(db, "classes", currentClass), {
+        students: classStudents,
+        studentNames: classStudents.map(s => s.name)
+    });
+}
+
 // 4자리 PIN 발급 (중복 회피)
 async function issuePin(classId) {
     for (let i = 0; i < 25; i++) {
         const pin = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
         const snap = await getDoc(doc(db, "pins", pin));
         if (!snap.exists()) {
-            await setDoc(doc(db, "pins", pin), { classId, createdAt: new Date().toISOString() });
-            return pin;
+            try {
+                // PIN 문서와 반의 pin 필드를 함께 기록 (규칙: 반 하나당 PIN 하나)
+                const batch = writeBatch(db);
+                batch.set(doc(db, "pins", pin), { classId, createdAt: new Date().toISOString() });
+                batch.update(doc(db, "classes", classId), { pin });
+                await batch.commit();
+                return pin;
+            } catch (e) { if (!isPermErr(e)) throw e; } // 동시에 다른 반이 가져간 경우 다시 시도
         }
     }
     throw new Error('PIN 발급에 실패했습니다. 잠시 후 다시 시도해 주세요.');
@@ -1087,7 +1131,6 @@ async function ensurePin() {
     if (!classData || classData.entryMode !== 'pin' || classData.pin) return;
     try {
         const p = await issuePin(currentClass);
-        await updateDoc(doc(db, "classes", currentClass), { pin: p });
         classData.pin = p;
         renderEntryInfo();
     } catch (e) { console.warn('PIN 자동 발급 실패:', e.message); }
@@ -1122,23 +1165,37 @@ async function createClass() {
     const grade = document.getElementById('create-grade').value;
     const pwd = document.getElementById('create-password').value;
     if (!name || !pwd) return alert("반 이름과 비밀번호를 입력해주세요.");
+    if (/[\/]/.test(name) || name.length > 40) return alert("반 이름에는 '/' 를 쓸 수 없고, 40자 이내여야 합니다.");
+    if (pwd.length < MIN_PW_LEN) return alert("비밀번호는 " + MIN_PW_LEN + "자 이상으로 정해 주세요.");
     const today = new Date().toISOString().split('T')[0];
     const stored = localStorage.getItem('classCreatedDates');
     const createdToday = stored ? JSON.parse(stored).filter(d => d === today).length : 0;
     if (createdToday >= 5)
         return alert("기기 제한: 하루에 최대 5개 반까지 생성할 수 있습니다.");
     try {
-        const snap = await getDoc(doc(db, "classes", name));
-        if (snap.exists()) return alert("이미 존재하는 반 이름입니다.");
-        await setDoc(doc(db, "classes", name), {
-            password: pwd, grade, createdAt: new Date().toISOString(),
-            surveyOpen: false, students: [], entryMode: 'pin'
+        await ensureAuth();
+        // 이미 있는 반인지 확인 (남의 반은 읽기 거부 → 이미 존재하는 것으로 간주)
+        let exists = false;
+        try { exists = (await getDoc(doc(db, "classes", name))).exists(); }
+        catch (e) { if (isPermErr(e)) exists = true; else throw e; }
+        if (exists) return alert("이미 존재하는 반 이름입니다.");
+
+        const pwHash = await hashPw(name, pwd);
+        const now = new Date().toISOString();
+        // 반 · 비밀번호 해시 · 내 관리자 등록을 한 번에 기록 (보안 규칙이 세 가지를 함께 검사)
+        const batch = writeBatch(db);
+        batch.set(doc(db, "classes", name), {
+            grade, createdAt: now, surveyOpen: false,
+            students: [], studentNames: [], entryMode: 'pin'
         });
+        batch.set(doc(db, "classSecrets", name), { pwHash });
+        batch.set(doc(db, "classes", name, "admins", uid()), { pwHash, at: now });
+        await batch.commit();
+
         // 학생 참여용 4자리 PIN 발급
         let newPin = '';
         try {
             newPin = await issuePin(name);
-            await updateDoc(doc(db, "classes", name), { pin: newPin });
         } catch (pe) { console.warn('PIN 발급 실패:', pe.message); }
 
         const stored2 = localStorage.getItem('classCreatedDates');
@@ -1153,26 +1210,43 @@ async function createClass() {
         document.getElementById('create-class-name').value = '';
         document.getElementById('create-password').value = '';
         showScreen('screen-teacher-menu');
-    } catch (e) { alert("생성 오류: " + e.message); }
+    } catch (e) {
+        if (isPermErr(e)) return alert("이미 존재하는 반 이름이거나 생성 권한이 없습니다.");
+        alert("생성 오류: " + e.message);
+    }
 }
 
 // ─── 교사 로그인 ─────────────────────────────────────────
 async function teacherLogin() {
     const name = document.getElementById('login-class-name').value.trim();
     const pwd = document.getElementById('login-password').value;
+    if (!name || !pwd) return alert("반 이름과 비밀번호를 입력해주세요.");
     try {
+        await ensureAuth();
+        const pwHash = await hashPw(name, pwd);
+        // 비밀번호 해시가 맞을 때만 보안 규칙이 이 기기를 관리자로 등록해 준다
+        try {
+            await setDoc(doc(db, "classes", name, "admins", uid()), { pwHash, at: new Date().toISOString() });
+        } catch (e) {
+            if (isPermErr(e)) return alert("반 이름 또는 비밀번호가 맞지 않습니다.");
+            throw e;
+        }
         const snap = await getDoc(doc(db, "classes", name));
-        if (!snap.exists() || snap.data().password !== pwd)
-            return alert("반 이름 또는 비밀번호가 맞지 않습니다.");
+        if (!snap.exists()) return alert("반 이름 또는 비밀번호가 맞지 않습니다.");
         currentClass = name;
         classData = snap.data();
         classStudents = normalizeStudents(classData.students || []);
+        document.getElementById('login-password').value = '';
         loadDashboard();
         showScreen('screen-teacher-dashboard');
     } catch (e) { alert("오류: " + e.message); }
 }
 
-function teacherLogout() {
+async function teacherLogout() {
+    // 이 기기의 관리자 등록 해제 (다음에 다시 비밀번호로 로그인)
+    if (currentClass && uid()) {
+        try { await deleteDoc(doc(db, "classes", currentClass, "admins", uid())); } catch (e) {}
+    }
     currentClass = ''; currentUser = ''; classData = null;
     classStudents = []; surveyAnswers = {}; surveyQuestions = [];
     showScreen('screen-home');
@@ -1186,6 +1260,11 @@ function loadDashboard() {
     updateSurveyBtn();
     renderEntryInfo();
     ensurePin();
+    // 예전 반: 규칙 대조용 studentNames 가 없으면 채워 넣기
+    if (classData && !Array.isArray(classData.studentNames)) {
+        saveStudents().then(() => { classData.studentNames = classStudents.map(s => s.name); })
+                      .catch(e => console.warn('studentNames 보정 실패:', e.message));
+    }
 }
 
 // 학생 참여 방식 안내 (PIN 방식 / 기존 반 코드 방식)
@@ -1294,8 +1373,8 @@ function renderStudentTags() {
     el.innerHTML = sorted.map((s) => {
         const origIdx = classStudents.findIndex(x => x.no === s.no && x.name === s.name);
         return '<div class="s-tag">' +
-            '<span style="font-size:11px;opacity:.7;margin-right:2px;">' + s.no + '</span>' +
-            s.name +
+            '<span style="font-size:11px;opacity:.7;margin-right:2px;">' + escAttr(s.no) + '</span>' +
+            escAttr(s.name) +
             ' <span class="del" data-action="removeStudent" data-index="' + origIdx + '">✕</span></div>';
     }).join('');
 }
@@ -1310,7 +1389,7 @@ async function addStudent() {
     const entry = { no, name };
     classStudents.push(entry);
     try {
-        await updateDoc(doc(db, "classes", currentClass), { students: classStudents });
+        await saveStudents();
         document.getElementById('new-student-no').value = '';
         document.getElementById('new-student-name').value = '';
         renderStudentTags();
@@ -1325,7 +1404,7 @@ async function removeStudent(idx) {
     if (!confirm("'" + classStudents[idx].name + "' 학생을 삭제할까요?")) return;
     const removed = classStudents.splice(idx, 1)[0];
     try {
-        await updateDoc(doc(db, "classes", currentClass), { students: classStudents });
+        await saveStudents();
         renderStudentTags();
         updateStats();
     } catch (e) {
@@ -1340,7 +1419,7 @@ async function clearAllStudents() {
     const backup = [...classStudents];
     classStudents.length = 0;
     try {
-        await updateDoc(doc(db, "classes", currentClass), { students: [] });
+        await saveStudents();
         renderStudentTags();
         updateStats();
     } catch (e) {
@@ -1398,7 +1477,7 @@ function setupExcelUpload() {
                 classStudents.push(entry); added++;
             }
 
-            await updateDoc(doc(db, "classes", currentClass), { students: classStudents });
+            await saveStudents();
             renderStudentTags(); updateStats();
             status.textContent = '✅ ' + added + '명 등록 완료' + (skipped > 0 ? ' (' + skipped + '명 중복 건너뜀)' : '');
             status.style.color = 'var(--success)';
@@ -1485,27 +1564,40 @@ async function copyInviteCode() {
 async function changePassword() {
     const newPwd = document.getElementById('new-password').value;
     if (!newPwd) return alert("새 비밀번호를 입력하세요.");
+    if (newPwd.length < MIN_PW_LEN) return alert("비밀번호는 " + MIN_PW_LEN + "자 이상으로 정해 주세요.");
     try {
-        await updateDoc(doc(db, "classes", currentClass), { password: newPwd });
-        classData.password = newPwd;
-        alert("비밀번호가 변경되었습니다.");
+        const pwHash = await hashPw(currentClass, newPwd);
+        await setDoc(doc(db, "classSecrets", currentClass), { pwHash });
+        await setDoc(doc(db, "classes", currentClass, "admins", uid()), { pwHash, at: new Date().toISOString() });
+        // 다른 기기의 관리자 등록은 모두 해제
+        const adm = await getDocs(collection(db, "classes", currentClass, "admins"));
+        for (const d of adm.docs) { if (d.id !== uid()) { try { await deleteDoc(d.ref); } catch (e) {} } }
+        alert("비밀번호가 변경되었습니다.\n다른 기기에서 접속 중이던 관리 권한은 해제되었습니다.");
         document.getElementById('new-password').value = '';
     } catch (e) { alert("비밀번호 변경 오류: " + e.message); }
 }
 
 // ─── 반 삭제 ────────────────────────────────────────────
-// 반 + 응답 + PIN 매핑을 함께 삭제 (하위 컬렉션은 자동 삭제되지 않으므로 직접 정리)
+// 반 + 응답 + 제출표시 + PIN + 비밀번호 해시 + 관리자 등록을 함께 삭제
+// (하위 컬렉션은 자동 삭제되지 않으므로 직접 정리. 내 관리자 등록은 권한 유지를 위해 마지막에 삭제)
 async function purgeClassCompletely(id) {
     try {
         const snap = await getDoc(doc(db, "classes", id));
         const pin = snap.exists() ? snap.data().pin : null;
         if (pin) { try { await deleteDoc(doc(db, "pins", pin)); } catch (e) {} }
     } catch (e) {}
-    try {
-        const resSnap = await getDocs(collection(db, "classes", id, "responses"));
-        for (const d of resSnap.docs) { try { await deleteDoc(d.ref); } catch (e) {} }
-    } catch (e) {}
+    for (const sub of ["responses", "submitted"]) {
+        try {
+            const ss = await getDocs(collection(db, "classes", id, sub));
+            for (const d of ss.docs) { try { await deleteDoc(d.ref); } catch (e) {} }
+        } catch (e) {}
+    }
+    let adminDocs = [];
+    try { adminDocs = (await getDocs(collection(db, "classes", id, "admins"))).docs; } catch (e) {}
+    for (const d of adminDocs) { if (d.id !== uid()) { try { await deleteDoc(d.ref); } catch (e) {} } }
     await deleteDoc(doc(db, "classes", id));
+    try { await deleteDoc(doc(db, "classSecrets", id)); } catch (e) {}
+    try { await deleteDoc(doc(db, "classes", id, "admins", uid())); } catch (e) {}
 }
 
 async function deleteClass() {
@@ -1513,7 +1605,8 @@ async function deleteClass() {
     try {
         await purgeClassCompletely(currentClass);
         alert("삭제되었습니다.");
-        teacherLogout();
+        currentClass = '';
+        await teacherLogout();
     } catch (e) { alert("반 삭제 오류: " + e.message); }
 }
 
@@ -1699,6 +1792,7 @@ async function deleteResponse(id) {
     if (!confirm("'" + id + "' 학생의 응답을 삭제할까요?\n\n삭제하면 이 학생은 설문에 다시 참여할 수 있습니다.")) return;
     try {
         await deleteDoc(doc(db, "classes", currentClass, "responses", id));
+        try { await deleteDoc(doc(db, "classes", currentClass, "submitted", id)); } catch (e) {}
         await afterResponseChange();
     } catch (e) { alert("삭제 오류: " + e.message); }
 }
@@ -1714,7 +1808,10 @@ async function purgeGhostResponses() {
         if (!confirm("명단에 없는 응답 " + targets.length + "건을 모두 삭제할까요?\n\n" +
                      targets.slice(0, 10).map(d => '· ' + d.id).join('\n') +
                      (targets.length > 10 ? '\n외 ' + (targets.length - 10) + '건' : ''))) return;
-        for (const d of targets) await deleteDoc(d.ref);
+        for (const d of targets) {
+            await deleteDoc(d.ref);
+            try { await deleteDoc(doc(db, "classes", currentClass, "submitted", d.id)); } catch (e) {}
+        }
         alert(targets.length + "건을 삭제했습니다.");
         await afterResponseChange();
     } catch (e) { alert("삭제 오류: " + e.message); }
@@ -1724,8 +1821,10 @@ async function clearAllResponses() {
     if (!confirm("이 반의 응답을 전부 삭제할까요?\n학생 명단은 그대로 남습니다.")) return;
     if (!confirm("⚠️ 삭제한 응답은 복구할 수 없습니다.\n정말 전체 삭제할까요?")) return;
     try {
-        const resSnap = await getDocs(collection(db, "classes", currentClass, "responses"));
-        for (const d of resSnap.docs) await deleteDoc(d.ref);
+        for (const sub of ["responses", "submitted"]) {
+            const ss = await getDocs(collection(db, "classes", currentClass, sub));
+            for (const d of ss.docs) await deleteDoc(d.ref);
+        }
         alert("응답을 모두 삭제했습니다. 학생들이 다시 참여할 수 있습니다.");
         await afterResponseChange();
     } catch (e) { alert("삭제 오류: " + e.message); }
@@ -1887,7 +1986,7 @@ function renderTypes(el, allNames, qs) {
             (m.urgent ? '<span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:99px;background:#FF5252;color:#fff;">⚠️ 주의</span>' : '') +
             '</div>' +
             '<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;">' +
-            students.map(n => '<span class="type-chip" style="background:' + m.color + ';color:' + m.text + ';">' + n + '</span>').join('') +
+            students.map(n => '<span class="type-chip" style="background:' + m.color + ';color:' + m.text + ';">' + escAttr(n) + '</span>').join('') +
             '</div></div>' +
             '<span style="color:var(--muted);font-size:16px;flex-shrink:0;">▾</span>' +
             '</div>';
@@ -1925,7 +2024,7 @@ function renderTypes(el, allNames, qs) {
         html += '<div class="divider"></div>' +
             '<div style="font-weight:800;font-size:14px;margin-bottom:10px;">🏆 가장 많이 선택된 친구 TOP 5</div>';
         top5.forEach(([name,cnt],i) => {
-            html += '<div class="list-item"><span>' + ['🥇','🥈','🥉','4️⃣','5️⃣'][i] + ' ' + name + '</span>' +
+            html += '<div class="list-item"><span>' + ['🥇','🥈','🥉','4️⃣','5️⃣'][i] + ' ' + escAttr(name) + '</span>' +
                 '<span class="badge badge-blue">' + cnt + '회</span></div>';
         });
     }
@@ -2028,7 +2127,7 @@ function renderGraph() {
         const rad = nodeR(n);
         const fill = nodeColor(n);
         svg += '<circle cx="'+x+'" cy="'+y+'" r="'+rad+'" fill="'+fill+'" stroke="#fff" stroke-width="2" opacity="0.92"/>';
-        svg += '<text x="'+x+'" y="'+(y+rad+13)+'" text-anchor="middle" class="sg-label" fill="#2D2F5B">'+n+'</text>';
+        svg += '<text x="'+x+'" y="'+(y+rad+13)+'" text-anchor="middle" class="sg-label" fill="#2D2F5B">'+escAttr(n)+'</text>';
     });
     svg += '</svg>';
     el.innerHTML = svg;
@@ -2053,7 +2152,7 @@ function renderIndividualSelect() {
         return;
     }
     sel.innerHTML = '<option value="">-- 학생 선택 --</option>' +
-        names.map(n => '<option value="' + n + '">' + n + '</option>').join('');
+        names.map(n => '<option value="' + escAttr(n) + '">' + escAttr(n) + '</option>').join('');
     // 기존 핸들러 교체 (onchange 방식으로 중복 방지)
     sel.onchange = () => renderIndividual(sel.value);
 }
@@ -2098,7 +2197,7 @@ function renderIndividual(name) {
     let html = '';
     // 유형 배지 + 특징·지도방법
     html += '<div style="background:' + tm.color + ';color:' + tm.text + ';border-radius:12px;padding:14px 16px;margin-bottom:14px;">' +
-        '<div style="font-size:15px;font-weight:800;margin-bottom:4px;">' + tm.icon + ' ' + name + ' 학생 · ' + tm.label +
+        '<div style="font-size:15px;font-weight:800;margin-bottom:4px;">' + tm.icon + ' ' + escAttr(name) + ' 학생 · ' + tm.label +
         (tm.badge ? ' <span style="font-size:11px;opacity:.8;">· ' + tm.badge + '</span>' : '') + '</div>' +
         '<div style="font-size:12px;opacity:.85;line-height:1.6;margin-bottom:10px;">' + tm.desc + '</div>' +
         '<div style="font-size:11px;font-weight:800;margin-bottom:3px;">📋 주요 특징</div>' +
@@ -2125,19 +2224,19 @@ function renderIndividual(name) {
     if (mutual.length > 0) {
         html += '<div style="font-size:13px;font-weight:800;margin-bottom:6px;">🤝 쌍방향 친구</div>' +
             '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;">' +
-            mutual.map(n=>'<span class="badge" style="background:#D4EDDA;color:#155724;font-size:13px;">'+n+'</span>').join('') +
+            mutual.map(n=>'<span class="badge" style="background:#D4EDDA;color:#155724;font-size:13px;">'+escAttr(n)+'</span>').join('') +
             '</div>';
     }
     if (selectedMe.filter(n=>!mutual.includes(n)).length > 0) {
         html += '<div style="font-size:13px;font-weight:800;margin-bottom:6px;">💙 나를 선택한 친구</div>' +
             '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;">' +
-            selectedMe.filter(n=>!mutual.includes(n)).map(n=>'<span class="badge badge-blue" style="font-size:13px;">'+n+'</span>').join('') +
+            selectedMe.filter(n=>!mutual.includes(n)).map(n=>'<span class="badge badge-blue" style="font-size:13px;">'+escAttr(n)+'</span>').join('') +
             '</div>';
     }
     if (iSelected.filter(n=>!mutual.includes(n)).length > 0) {
         html += '<div style="font-size:13px;font-weight:800;margin-bottom:6px;">➡️ 내가 선택한 친구</div>' +
             '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;">' +
-            iSelected.filter(n=>!mutual.includes(n)).map(n=>'<span class="badge" style="background:#FFF3CD;color:#856404;font-size:13px;">'+n+'</span>').join('') +
+            iSelected.filter(n=>!mutual.includes(n)).map(n=>'<span class="badge" style="background:#FFF3CD;color:#856404;font-size:13px;">'+escAttr(n)+'</span>').join('') +
             '</div>';
     }
 
@@ -2147,7 +2246,7 @@ function renderIndividual(name) {
         qs.forEach((q,i) => {
             const ans = myRow['q'+i] || [];
             html += '<div style="margin-bottom:8px;"><div style="font-size:12px;color:var(--muted);margin-bottom:3px;">Q'+(i+1)+'. '+q+'</div>' +
-                '<div>' + (ans.length ? ans.map(a=>'<span class="badge badge-blue" style="font-size:12px;">'+a+'</span>').join(' ') : '<span style="font-size:12px;color:var(--muted);">응답 없음</span>') + '</div></div>';
+                '<div>' + (ans.length ? ans.map(a=>'<span class="badge badge-blue" style="font-size:12px;">'+escAttr(a)+'</span>').join(' ') : '<span style="font-size:12px;color:var(--muted);">응답 없음</span>') + '</div></div>';
         });
     }
 
@@ -2219,6 +2318,22 @@ function startSurvey(code, name, data) {
     showScreen('screen-survey');
 }
 
+// 이미 제출했는지 확인 (응답 내용은 학생이 읽을 수 없고, 제출 표시만 확인)
+async function alreadySubmitted(cid, name) {
+    try { return (await getDoc(doc(db, "classes", cid, "submitted", name))).exists(); }
+    catch (e) { return false; }
+}
+// 반 정보 읽기 — 설문이 닫혀 있으면 규칙이 거부하므로 null 로 돌려준다
+async function readClassForStudent(cid) {
+    try {
+        const snap = await getDoc(doc(db, "classes", cid));
+        return snap.exists() ? { exists: true, data: snap.data() } : { exists: false };
+    } catch (e) {
+        if (isPermErr(e)) return { exists: true, closed: true };
+        throw e;
+    }
+}
+
 // ── ① PIN 입장 (업데이트 이후 생성된 반) ──
 let pickClassId = '', pickClassData = null, pickStudents = [];
 
@@ -2226,12 +2341,14 @@ async function pinJoin() {
     const pin = (document.getElementById('student-pin').value || '').trim();
     if (!/^\d{4}$/.test(pin)) return alert("PIN 번호 4자리를 정확히 입력해 주세요.");
     try {
+        await ensureAuth();
         const pinSnap = await getDoc(doc(db, "pins", pin));
         if (!pinSnap.exists()) return alert("PIN 번호가 맞지 않습니다.\n선생님께 다시 여쭤보세요.");
         const cid = pinSnap.data().classId;
-        const snap = await getDoc(doc(db, "classes", cid));
-        if (!snap.exists()) return alert("반 정보를 찾을 수 없습니다. 선생님께 문의해 주세요.");
-        const data = snap.data();
+        const r = await readClassForStudent(cid);
+        if (!r.exists) return alert("반 정보를 찾을 수 없습니다. 선생님께 문의해 주세요.");
+        if (r.closed) return alert("아직 설문이 열리지 않았습니다.\n선생님께서 시작하시면 참여할 수 있어요.");
+        const data = r.data;
         if (!data.surveyOpen) return alert("아직 설문이 열리지 않았습니다.\n선생님께서 시작하시면 참여할 수 있어요.");
         pickStudents = normalizeStudents(data.students || []).slice().sort((a, b) => (a.no || 0) - (b.no || 0));
         if (pickStudents.length === 0) return alert("아직 학생 명단이 등록되지 않았습니다. 선생님께 문의해 주세요.");
@@ -2256,8 +2373,7 @@ async function pickStudent(no) {
     if (!s || !pickClassId) return;
     if (!confirm(s.no + "번 " + maskName(s.name) + " 학생이 맞나요?\n\n맞으면 [확인]을 눌러 주세요.")) return;
     try {
-        const resSnap = await getDoc(doc(db, "classes", pickClassId, "responses", s.name));
-        if (resSnap.exists())
+        if (await alreadySubmitted(pickClassId, s.name))
             return alert("이미 설문에 참여했어요.\n다시 해야 한다면 선생님께 말씀드려 주세요.");
         startSurvey(pickClassId, s.name, pickClassData);
     } catch (e) { alert("오류: " + e.message); }
@@ -2278,17 +2394,18 @@ async function studentJoin() {
     const name = document.getElementById('student-name').value.trim();
     if (!code || !name) return alert("반 코드와 이름을 모두 입력해주세요.");
     try {
-        const snap = await getDoc(doc(db, "classes", code));
-        if (!snap.exists()) return alert("존재하지 않는 반입니다. 반 코드를 다시 확인해주세요.");
-        const data = snap.data();
+        await ensureAuth();
+        const r = await readClassForStudent(code);
+        if (!r.exists) return alert("존재하지 않는 반입니다. 반 코드를 다시 확인해주세요.");
+        if (r.closed) return alert("현재 설문이 열려 있지 않습니다. 선생님께 문의해 주세요.");
+        const data = r.data;
         if (!data.surveyOpen) return alert("현재 설문이 열려 있지 않습니다. 선생님께 문의해 주세요.");
         // ★ 명단 대조 — 명단에 없는 이름은 입장 불가
         const matched = findStudentByName(normalizeStudents(data.students || []), name);
         if (!matched)
             return alert("명단에 없는 이름이에요.\n선생님께 등록된 이름을 확인해 주세요.\n\n(띄어쓰기 없이 정확히 입력해 보세요.)");
         // 응답 문서 ID는 항상 명단의 원본 이름을 사용
-        const resSnap = await getDoc(doc(db, "classes", code, "responses", matched.name));
-        if (resSnap.exists()) return alert("이미 설문에 참여했습니다. 한 번만 참여할 수 있어요.");
+        if (await alreadySubmitted(code, matched.name)) return alert("이미 설문에 참여했습니다. 한 번만 참여할 수 있어요.");
         startSurvey(code, matched.name, data);
     } catch (e) { alert("오류: " + e.message); }
 }
@@ -2305,7 +2422,7 @@ function showQuestion(idx) {
     document.getElementById('q-text').textContent = surveyQuestions[idx];
     const prev = surveyAnswers['q' + idx] || [];
     document.getElementById('friend-list').innerHTML = classStudents.map(s =>
-        '<div class="friend-chip' + (prev.includes(s) ? ' selected' : '') + '" data-name="' + s.replace(/"/g, '&quot;') + '">' + s + '</div>'
+        '<div class="friend-chip' + (prev.includes(s) ? ' selected' : '') + '" data-name="' + escAttr(s) + '">' + escAttr(s) + '</div>'
     ).join('');
     updateSelCount(idx);
 }
@@ -2334,12 +2451,20 @@ async function submitSurvey() {
     if (isSubmitting) return;
     isSubmitting = true;
     try {
-        await setDoc(doc(db, "classes", currentClass, "responses", currentUser), {
-            ...surveyAnswers, submittedAt: new Date().toISOString()
-        });
+        await ensureAuth();
+        const now = new Date().toISOString();
+        // 응답 + 제출 표시를 함께 기록 (이미 제출한 이름이면 규칙이 거부)
+        const batch = writeBatch(db);
+        batch.set(doc(db, "classes", currentClass, "responses", currentUser), { ...surveyAnswers, submittedAt: now });
+        batch.set(doc(db, "classes", currentClass, "submitted", currentUser), { at: now });
+        await batch.commit();
         showScreen('screen-done');
     } catch (e) {
-        alert("제출 오류: " + e.message);
+        if (isPermErr(e)) {
+            alert("제출할 수 없어요.\n이미 참여했거나, 선생님이 설문을 닫았거나, 명단이 바뀌었을 수 있어요.\n선생님께 말씀드려 주세요.");
+        } else {
+            alert("제출 오류: " + e.message);
+        }
         isSubmitting = false;
     }
 }
@@ -2347,6 +2472,7 @@ async function submitSurvey() {
 // ─── 총괄 관리자 ─────────────────────────────────────────
 const AUTO_DELETE_MONTHS = 3;      // 보관 기간(개월)
 let expiredClassIds = [];          // 3개월 경과 반 id 목록
+let legacyClassIds = [];           // 비밀번호 평문이 남아 있는 예전 반 id 목록
 
 // 생성일 기준 만료 정보 계산
 function getExpiryInfo(createdAt) {
@@ -2373,12 +2499,16 @@ async function loadSuperAdmin() {
     expiredClassIds = [];
     if (purgeBtn) { purgeBtn.style.display = 'none'; purgeBtn.disabled = false; }
     el.innerHTML = '<div class="loading">불러오는 중...</div>';
+    const mbox = document.getElementById('migrate-box');
+    if (mbox) mbox.style.display = 'none';
+    legacyClassIds = [];
     try {
         const snap = await getDocs(collection(db, "classes"));
         if (snap.empty) { el.innerHTML = '<p>생성된 반이 없습니다.</p>'; return; }
         let html = '';
         snap.forEach(d => {
             const data = d.data();
+            if (typeof data.password === 'string') legacyClassIds.push(d.id);
             const info = getExpiryInfo(data.createdAt);
             let dateTxt, tag = '';
             if (!info.known) {
@@ -2390,10 +2520,11 @@ async function loadSuperAdmin() {
             } else {
                 dateTxt = '생성: ' + fmtDate(info.created) + ' (삭제까지 ' + info.remainDays + '일)';
             }
-            html += '<div class="list-item"><div><strong>' + d.id + '</strong> <span class="badge badge-blue">' + (GRADE_LABEL[data.grade] || '') + '</span> ' + tag + '<br>' +
+            if (typeof data.password === 'string') tag += ' <span class="badge" style="background:#FFF8E1;color:#8D6E00">보안 전환 필요</span>';
+            html += '<div class="list-item"><div><strong>' + escAttr(d.id) + '</strong> <span class="badge badge-blue">' + (GRADE_LABEL[data.grade] || '') + '</span> ' + tag + '<br>' +
                 '<span style="font-size:12px;color:var(--muted)">학생: ' + (data.students || []).length + '명 / 설문: ' + (data.surveyOpen ? '진행중' : '중지') + '</span><br>' +
                 '<span style="font-size:12px;color:var(--muted)">' + dateTxt + '</span></div>' +
-                '<button class="btn btn-danger btn-sm" data-action="superDeleteClass" data-id="' + d.id + '">삭제</button></div>';
+                '<button class="btn btn-danger btn-sm" data-action="superDeleteClass" data-id="' + escAttr(d.id) + '">삭제</button></div>';
         });
         el.innerHTML = html;
         if (purgeBtn) {
@@ -2404,7 +2535,14 @@ async function loadSuperAdmin() {
                 purgeBtn.style.display = 'none';
             }
         }
-    } catch (e) { el.innerHTML = '<div class="alert alert-danger">데이터 로드 실패</div>'; }
+        if (mbox && legacyClassIds.length > 0) {
+            mbox.style.display = '';
+            document.getElementById('migrate-count').textContent = '(' + legacyClassIds.length + '개)';
+        }
+    } catch (e) {
+        el.innerHTML = '<div class="alert alert-danger">데이터 로드 실패' +
+            (isPermErr(e) ? ' — 총괄 관리자로 등록된 계정이 아닙니다.' : ': ' + escAttr(e.message)) + '</div>';
+    }
 }
 
 async function superDeleteClass(id) {
@@ -2444,6 +2582,59 @@ async function superPurgeOldClasses() {
     await loadSuperAdmin();
 }
 
+// 총괄 관리자 로그인 (규칙에 등록된 구글 계정만 권한을 가진다)
+async function superLogin() {
+    try {
+        await authInitPromise;
+        await signInWithPopup(auth, new GoogleAuthProvider());
+        showScreen('screen-superadmin');
+        await loadSuperAdmin();
+    } catch (e) {
+        if (e && e.code === 'auth/popup-closed-by-user') return;
+        if (e && e.code === 'auth/operation-not-allowed')
+            return alert('Firebase 콘솔에서 Google 로그인이 활성화되지 않았습니다.');
+        if (e && e.code === 'auth/unauthorized-domain')
+            return alert('이 주소가 Firebase 승인된 도메인에 없습니다.\n(Authentication → 설정 → 승인된 도메인에 추가)');
+        alert('로그인 오류: ' + e.message);
+    }
+}
+
+async function superLogout() {
+    try { await signOut(auth); } catch (e) {}
+    showScreen('screen-home');
+}
+
+// 예전 반 일괄 보안 전환: 평문 비밀번호 → classSecrets 해시, studentNames · 제출 표시 채우기
+async function superMigrateLegacy() {
+    if (legacyClassIds.length === 0) return alert("전환할 반이 없습니다.");
+    if (!confirm("예전 반 " + legacyClassIds.length + "개를 보안 전환할까요?\n선생님들은 쓰던 비밀번호로 그대로 접속합니다.")) return;
+    const prog = document.getElementById('purge-progress');
+    if (prog) prog.style.display = '';
+    let ok = 0; const failed = [];
+    for (let i = 0; i < legacyClassIds.length; i++) {
+        const id = legacyClassIds[i];
+        if (prog) prog.textContent = '보안 전환 중... (' + (i + 1) + '/' + legacyClassIds.length + ')';
+        try {
+            const snap = await getDoc(doc(db, "classes", id));
+            if (!snap.exists()) continue;
+            const data = snap.data();
+            if (typeof data.password !== 'string') { ok++; continue; }
+            const pwHash = await hashPw(id, data.password);
+            const names = normalizeStudents(data.students || []).map(s => s.name);
+            await setDoc(doc(db, "classSecrets", id), { pwHash });
+            await updateDoc(doc(db, "classes", id), { password: deleteField(), studentNames: names });
+            // 이미 받은 응답에 제출 표시 추가 (중복 참여 방지)
+            const rs = await getDocs(collection(db, "classes", id, "responses"));
+            for (const r of rs.docs) {
+                try { await setDoc(doc(db, "classes", id, "submitted", r.id), { at: (r.data() || {}).submittedAt || new Date().toISOString() }); } catch (e) {}
+            }
+            ok++;
+        } catch (e) { failed.push(id + ' (' + e.message + ')'); }
+    }
+    alert("보안 전환 완료: " + ok + "개" + (failed.length ? "\n실패: " + failed.join(', ') : ""));
+    await loadSuperAdmin();
+}
+
 // ════════════════════════════════════════════════════════
 // 전역 이벤트 위임: data-action 속성으로 모든 클릭 처리
 // ════════════════════════════════════════════════════════
@@ -2464,7 +2655,7 @@ document.addEventListener('click', async (e) => {
             case 'toggleTypeCard':   toggleTypeCard(el.dataset.target); break;
             case 'createClass':      await createClass(); break;
             case 'teacherLogin':     await teacherLogin(); break;
-            case 'teacherLogout':    teacherLogout(); break;
+            case 'teacherLogout':    await teacherLogout(); break;
             case 'toggleSurvey':     await toggleSurvey(); break;
             case 'refreshDashboard': await refreshDashboard(); break;
             case 'copyInviteCode':   await copyInviteCode(); break;
@@ -2488,6 +2679,8 @@ document.addEventListener('click', async (e) => {
             case 'skipQuestion':     skipQuestion(); break;
             case 'superDeleteClass': await superDeleteClass(el.dataset.id); break;
             case 'superPurgeOldClasses': await superPurgeOldClasses(); break;
+            case 'superMigrateLegacy':   await superMigrateLegacy(); break;
+            case 'superLogout':          await superLogout(); break;
             default: break;
         }
     } catch (err) {
@@ -2720,7 +2913,7 @@ async function downloadPDF() {
                 top5.map(([name, cnt], i) =>
                     '<div style="background:#FFF0EB;border-radius:10px;padding:10px;text-align:center;">' +
                     '<div style="font-size:18px;">' + ['🥇','🥈','🥉','4️⃣','5️⃣'][i] + '</div>' +
-                    '<div style="font-size:13px;font-weight:800;margin-top:4px;">' + name + '</div>' +
+                    '<div style="font-size:13px;font-weight:800;margin-top:4px;">' + escAttr(name) + '</div>' +
                     '<div style="font-size:11px;color:#8589B0;">' + cnt + '회</div></div>'
                 ).join('') + '</div>';
         }
@@ -2777,7 +2970,7 @@ async function downloadPDF() {
             // 학생 헤더
             html += '<div style="background:' + c.bg + ';border-radius:8px;padding:10px 14px;margin-bottom:10px;">' +
                 '<span style="font-size:15px;font-weight:800;color:' + c.fg + ';">' +
-                tm.icon + ' ' + name + ' · ' + tm.label + '</span></div>';
+                tm.icon + ' ' + escAttr(name) + ' · ' + tm.label + '</span></div>';
 
             // 수치 요약
             html += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px;">' +
@@ -3087,7 +3280,7 @@ function printAllQR() {
     const cardsHtml = cardDataList.map(function(d) {
         return '<div class="qr-card">' +
             '<div class="qr-no">' + d.no + '</div>' +
-            '<div class="qr-name">' + d.name + '</div>' +
+            '<div class="qr-name">' + escAttr(d.name) + '</div>' +
             '<img src="' + d.dataUrl + '" width="90" height="90" alt="QR">' +
             '<div class="qr-class">' + d.cls + '</div>' +
             '</div>';
@@ -3166,12 +3359,14 @@ async function applyQueryParams() {
     // Firebase가 준비될 때까지 잠깐 대기 후 자동 참여 시도
     // (모듈 스크립트 defer 실행이므로 Firebase는 이미 초기화 완료)
     try {
-        const snap = await getDoc(doc(db, "classes", cls));
-        if (!snap.exists()) {
+        await ensureAuth();
+        const r = await readClassForStudent(cls);
+        if (!r.exists) {
             alert("존재하지 않는 반입니다. 반 코드를 확인해 주세요.");
             return;
         }
-        const data = snap.data();
+        if (r.closed) return; // 설문이 아직 열리지 않음 — 입력만 채운 채 대기
+        const data = r.data;
         if (!data.surveyOpen) {
             // 설문이 아직 열리지 않은 경우 — 입력만 채운 채 대기
             return;
@@ -3182,8 +3377,7 @@ async function applyQueryParams() {
             alert("명단에 없는 이름입니다.\n선생님께 확인해 주세요.");
             return;
         }
-        const resSnap = await getDoc(doc(db, "classes", cls, "responses", matched.name));
-        if (resSnap.exists()) {
+        if (await alreadySubmitted(cls, matched.name)) {
             alert("이미 설문에 참여했습니다.");
             showScreen('screen-home');
             return;
@@ -3205,9 +3399,7 @@ document.getElementById('easter-egg-btn').addEventListener('click', () => {
     clickTimer = setTimeout(() => { clickCount = 0; }, 2000);
     if (clickCount >= 5) {
         clickCount = 0;
-        const pwd = prompt("총괄 관리자 코드:");
-        if (pwd === "5703958") { loadSuperAdmin(); showScreen('screen-superadmin'); }
-        else if (pwd !== null) alert("인증 실패");
+        if (confirm("총괄 관리자 로그인\n\n등록된 구글 계정으로 로그인합니다. 계속할까요?")) superLogin();
     }
 });
 </script>
