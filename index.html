@@ -1873,7 +1873,15 @@ async function loadResults() {
         }
 
         resultRows = [];
-        resSnap.forEach(d => resultRows.push({ name: d.id, ...d.data() }));
+        resSnap.forEach(d => {
+            const row = { name: d.id, ...d.data() };
+            // 자기 자신을 고른 선택은 분석에서 제외 (예전 응답 포함)
+            for (let i = 0; i < 10; i++) {
+                if (Array.isArray(row['q' + i]))
+                    row['q' + i] = row['q' + i].filter(t => normName(t) !== normName(row.name));
+            }
+            resultRows.push(row);
+        });
 
         const qs = QUESTIONS[classData.grade];
         const allNames = resultStudents.map(s => s.name);
@@ -2676,7 +2684,11 @@ async function submitSurvey() {
         const now = new Date().toISOString();
         // 응답 + 제출 표시를 함께 기록 (이미 제출한 이름이면 규칙이 거부)
         const batch = writeBatch(db);
-        batch.set(doc(db, "classes", currentClass, "responses", currentUser), { ...surveyAnswers, submittedAt: now });
+        const clean = {};
+        Object.keys(surveyAnswers).forEach(k => {
+            clean[k] = (surveyAnswers[k] || []).filter(t => normName(t) !== normName(currentUser));
+        });
+        batch.set(doc(db, "classes", currentClass, "responses", currentUser), { ...clean, submittedAt: now });
         batch.set(doc(db, "classes", currentClass, "submitted", currentUser), { at: now });
         await batch.commit();
         showScreen('screen-done');
