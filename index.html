@@ -1158,6 +1158,41 @@ function saveStudents() {
     });
 }
 
+// ─── 대시보드 세션 확인 ───────────────────────────────
+// 로그인한 뒤 이 반이 삭제되었거나 같은 이름으로 새로 만들어졌다면(다른 탭·총괄 관리자),
+// 이 화면이 기억하던 예전 명단으로 새 반을 덮어쓰지 않도록 쓰기 전에 항상 확인한다.
+function staleErr() { const e = new Error('STALE_SESSION'); e.stale = true; return e; }
+async function verifySession() {
+    if (!currentClass || !classData) throw staleErr();
+    let snap;
+    try { snap = await getDoc(doc(db, "classes", currentClass)); }
+    catch (e) { if (isPermErr(e)) throw staleErr(); throw e; }
+    if (!snap.exists() || snap.data().createdAt !== classData.createdAt) throw staleErr();
+    return snap.data();
+}
+async function handleStale(e) {
+    if (!e || !e.stale) return false;
+    alert("이 반이 삭제되었거나 같은 이름으로 새로 만들어졌습니다.\n다시 로그인해 주세요.");
+    currentClass = '';          // 새 반의 관리자 등록을 지우지 않도록 먼저 비움
+    await teacherLogout();
+    return true;
+}
+// 명단 변경: 항상 서버의 최신 명단을 읽어 와서 고친 뒤 저장 (화면에 남은 예전 명단으로 덮어쓰기 방지)
+async function mutateRoster(mutator) {
+    const fresh = await verifySession();
+    classData = fresh;
+    const list = normalizeStudents(fresh.students || []);
+    const result = mutator(list);
+    if (result === false) { classStudents = list; renderStudentTags(); return false; }
+    classStudents = list;
+    await saveStudents();
+    classData.students = classStudents;
+    classData.studentNames = classStudents.map(x => x.name);
+    renderStudentTags();
+    updateStats();
+    return result;
+}
+
 // ─── 개인 QR 코드 (추측할 수 없는 학생별 비밀 코드) ────────
 // QR 주소에는 이름 대신 무작위 코드만 담는다: ?t=코드
 function randToken(len = 20) {
@@ -1409,24 +1444,23 @@ function updateSurveyBtn() {
 
 async function refreshDashboard() {
     try {
-        const snap = await getDoc(doc(db, "classes", currentClass));
-        if (!snap.exists()) return alert("반 정보를 찾을 수 없습니다. 다시 로그인해 주세요.");
-        classData = snap.data();
+        classData = await verifySession();
         classStudents = normalizeStudents(classData.students || []);
         loadDashboard();
         switchTab('tab-students');
-    } catch (e) { alert("새로고침 오류: " + e.message); }
+    } catch (e) { if (await handleStale(e)) return; alert("새로고침 오류: " + e.message); }
 }
 
 // ─── 설문 시작/중지 ──────────────────────────────────────
 async function toggleSurvey() {
-    const newState = !(classData && classData.surveyOpen);
     try {
+        classData = await verifySession();
+        const newState = !classData.surveyOpen;
         await updateDoc(doc(db, "classes", currentClass), { surveyOpen: newState });
         classData.surveyOpen = newState;
         updateSurveyBtn();
         alert(newState ? "설문이 시작되었습니다." : "설문이 중지되었습니다.");
-    } catch (e) { alert("설문 상태 변경 오류: " + e.message); }
+    } catch (e) { if (await handleStale(e)) return; alert("설문 상태 변경 오류: " + e.message); }
 }
 
 // ─── 학생 명단 ───────────────────────────────────────────
@@ -1465,31 +1499,34 @@ async function addStudent() {
     const name = document.getElementById('new-student-name').value.trim();
     if (!name) return alert("이름을 입력해주세요.");
     if (isNaN(no) || no < 1) return alert("번호를 입력해주세요.");
-    if (classStudents.find(s => s.name === name)) return alert("이미 등록된 이름입니다.");
-    if (classStudents.find(s => s.no === no)) return alert("이미 사용 중인 번호입니다.");
-    const entry = { no, name };
-    classStudents.push(entry);
+    if (/[\/]/.test(name)) return alert("이름에는 '/' 를 쓸 수 없습니다.");
     try {
-        await saveStudents();
+        let msg = '';
+        const ok = await mutateRoster(list => {
+            if (list.find(s => s.name === name)) { msg = "이미 등록된 이름입니다."; return false; }
+            if (list.find(s => s.no === no)) { msg = "이미 사용 중인 번호입니다."; return false; }
+            list.push({ no, name });
+        });
+        if (ok === false) return alert(msg);
         document.getElementById('new-student-no').value = '';
         document.getElementById('new-student-name').value = '';
-        renderStudentTags();
-        updateStats();
     } catch (e) {
-        classStudents.pop();
+        if (await handleStale(e)) return;
         alert("학생 추가 오류: " + e.message);
     }
 }
 
 async function removeStudent(idx) {
-    if (!confirm("'" + classStudents[idx].name + "' 학생을 삭제할까요?")) return;
-    const removed = classStudents.splice(idx, 1)[0];
+    const target = classStudents[idx];
+    if (!target) return;
+    if (!confirm("'" + target.name + "' 학생을 삭제할까요?")) return;
     try {
-        await saveStudents();
-        renderStudentTags();
-        updateStats();
+        await mutateRoster(list => {
+            const k = list.findIndex(s => s.no === target.no && s.name === target.name);
+            if (k >= 0) list.splice(k, 1);
+        });
     } catch (e) {
-        classStudents.splice(idx, 0, removed);
+        if (await handleStale(e)) return;
         alert("학생 삭제 오류: " + e.message);
     }
 }
@@ -1497,14 +1534,10 @@ async function removeStudent(idx) {
 async function clearAllStudents() {
     if (classStudents.length === 0) return alert("등록된 학생이 없습니다.");
     if (!confirm("전체 학생 명단을 삭제할까요?")) return;
-    const backup = [...classStudents];
-    classStudents.length = 0;
     try {
-        await saveStudents();
-        renderStudentTags();
-        updateStats();
+        await mutateRoster(list => { list.length = 0; });
     } catch (e) {
-        classStudents.push(...backup);
+        if (await handleStale(e)) return;
         alert("삭제 오류: " + e.message);
     }
 }
@@ -1549,20 +1582,21 @@ function setupExcelUpload() {
                 return;
             }
 
-            // 기존 명단에 병합 (중복 이름/번호 제외)
+            // 서버의 최신 명단에 병합 (중복 이름/번호, '/' 포함 이름 제외)
             let added = 0, skipped = 0;
-            for (const entry of parsed) {
-                const dupName = classStudents.find(s => s.name === entry.name);
-                const dupNo   = classStudents.find(s => s.no === entry.no);
-                if (dupName || dupNo) { skipped++; continue; }
-                classStudents.push(entry); added++;
-            }
-
-            await saveStudents();
-            renderStudentTags(); updateStats();
+            await mutateRoster(list => {
+                for (const entry of parsed) {
+                    const dupName = list.find(s => s.name === entry.name);
+                    const dupNo   = list.find(s => s.no === entry.no);
+                    if (dupName || dupNo || /[\/]/.test(entry.name)) { skipped++; continue; }
+                    list.push(entry); added++;
+                }
+            });
             status.textContent = '✅ ' + added + '명 등록 완료' + (skipped > 0 ? ' (' + skipped + '명 중복 건너뜀)' : '');
             status.style.color = 'var(--success)';
         } catch (err) {
+            input.value = '';
+            if (await handleStale(err)) return;
             status.textContent = '❌ 오류: ' + err.message;
             status.style.color = 'var(--danger)';
         }
@@ -1647,6 +1681,7 @@ async function changePassword() {
     if (!newPwd) return alert("새 비밀번호를 입력하세요.");
     if (newPwd.length < MIN_PW_LEN) return alert("비밀번호는 " + MIN_PW_LEN + "자 이상으로 정해 주세요.");
     try {
+        await verifySession();
         const pwHash = await hashPw(currentClass, newPwd);
         await setDoc(doc(db, "classSecrets", currentClass), { pwHash });
         await setDoc(doc(db, "classes", currentClass, "admins", uid()), { pwHash, at: new Date().toISOString() });
@@ -1655,7 +1690,7 @@ async function changePassword() {
         for (const d of adm.docs) { if (d.id !== uid()) { try { await deleteDoc(d.ref); } catch (e) {} } }
         alert("비밀번호가 변경되었습니다.\n다른 기기에서 접속 중이던 관리 권한은 해제되었습니다.");
         document.getElementById('new-password').value = '';
-    } catch (e) { alert("비밀번호 변경 오류: " + e.message); }
+    } catch (e) { if (await handleStale(e)) return; alert("비밀번호 변경 오류: " + e.message); }
 }
 
 // ─── 반 삭제 ────────────────────────────────────────────
@@ -1693,11 +1728,12 @@ async function purgeClassCompletely(id) {
 async function deleteClass() {
     if (!confirm("반 [" + currentClass + "]를 삭제하면 모든 데이터가 사라집니다. 삭제할까요?")) return;
     try {
+        await verifySession();   // 다른 탭에서 새로 만든 같은 이름의 반을 지우지 않도록 확인
         await purgeClassCompletely(currentClass);
         alert("삭제되었습니다.");
         currentClass = '';
         await teacherLogout();
-    } catch (e) { alert("반 삭제 오류: " + e.message); }
+    } catch (e) { if (await handleStale(e)) return; alert("반 삭제 오류: " + e.message); }
 }
 
 // ─── 결과 공용 상태 ──────────────────────────────────────
@@ -1881,14 +1917,16 @@ async function deleteResponse(id) {
     if (!id) return;
     if (!confirm("'" + id + "' 학생의 응답을 삭제할까요?\n\n삭제하면 이 학생은 설문에 다시 참여할 수 있습니다.")) return;
     try {
+        await verifySession();
         await deleteDoc(doc(db, "classes", currentClass, "responses", id));
         try { await deleteDoc(doc(db, "classes", currentClass, "submitted", id)); } catch (e) {}
         await afterResponseChange();
-    } catch (e) { alert("삭제 오류: " + e.message); }
+    } catch (e) { if (await handleStale(e)) return; alert("삭제 오류: " + e.message); }
 }
 
 async function purgeGhostResponses() {
     try {
+        await verifySession();
         const classSnap = await getDoc(doc(db, "classes", currentClass));
         const rosterKeys = normalizeStudents(classSnap.exists() ? (classSnap.data().students || []) : [])
                             .map(s => normName(s.name));
@@ -1911,6 +1949,7 @@ async function clearAllResponses() {
     if (!confirm("이 반의 응답을 전부 삭제할까요?\n학생 명단은 그대로 남습니다.")) return;
     if (!confirm("⚠️ 삭제한 응답은 복구할 수 없습니다.\n정말 전체 삭제할까요?")) return;
     try {
+        await verifySession();
         for (const sub of ["responses", "submitted"]) {
             const ss = await getDocs(collection(db, "classes", currentClass, sub));
             for (const d of ss.docs) await deleteDoc(d.ref);
@@ -2777,6 +2816,7 @@ document.addEventListener('click', async (e) => {
             default: break;
         }
     } catch (err) {
+        if (await handleStale(err)) return;
         console.error('이벤트 처리 오류:', err);
         alert('오류가 발생했습니다: ' + err.message);
     }
@@ -3304,8 +3344,14 @@ async function generateQR() {
     // 학생별 개인 코드 확인·발급
     let tokens;
     try {
+        // 최신 명단 기준으로 QR 생성
+        classData = await verifySession();
+        classStudents = normalizeStudents(classData.students || []);
+        sorted.length = 0;
+        sorted.push(...classStudents.filter(s => s && s.name).sort((a, b) => (a.no || 0) - (b.no || 0)));
         tokens = await ensureQrTokens(sorted);
     } catch (e) {
+        if (await handleStale(e)) return;
         grid.innerHTML = '<div class="alert alert-danger">개인 QR 코드 발급 오류: ' + escAttr(e.message) + '</div>';
         return;
     }
@@ -3349,6 +3395,7 @@ async function generateQR() {
 async function reissueQR() {
     if (!confirm("모든 학생의 QR코드를 새로 발급할까요?\n\n이전에 인쇄해 나눠 준 QR코드는 더 이상 쓸 수 없습니다.")) return;
     try {
+        await verifySession();
         const qs = await getDocs(collection(db, "classes", currentClass, "qr"));
         for (const d of qs.docs) {
             const tk = (d.data() || {}).token;
@@ -3357,7 +3404,7 @@ async function reissueQR() {
         }
         await generateQR();
         alert("새 QR코드가 발급되었습니다. 다시 인쇄해서 나눠 주세요.");
-    } catch (e) { alert("QR 새로 발급 오류: " + e.message); }
+    } catch (e) { if (await handleStale(e)) return; alert("QR 새로 발급 오류: " + e.message); }
 }
 
 function printAllQR() {
