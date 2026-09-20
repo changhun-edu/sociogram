@@ -63,7 +63,7 @@
 
         .input-wrap { margin-bottom: 14px; }
         .input-wrap label { display: block; font-size: 13px; font-weight: 700; color: var(--muted); margin-bottom: 6px; }
-        input[type="text"], input[type="password"], select { width: 100%; padding: 12px 14px; border: 1.5px solid var(--border); border-radius: 10px; font-family: inherit; font-size: 15px; color: var(--text); background: var(--bg); outline: none; transition: border .15s; }
+        input[type="text"], input[type="password"], input[type="tel"], input[type="number"], select { width: 100%; padding: 12px 14px; border: 1.5px solid var(--border); border-radius: 10px; font-family: inherit; font-size: 15px; color: var(--text); background: var(--bg); outline: none; transition: border .15s; }
         input:focus, select:focus { border-color: var(--primary); background: #fff; }
 
         /* ── 기존 hero (다른 화면에서 혹시 쓸 경우 유지) ── */
@@ -746,7 +746,7 @@
                 <button class="btn btn-secondary btn-sm" data-action="downloadTemplate" style="flex:1; min-width:140px">
                     📥 양식 다운로드
                 </button>
-                <label style="flex:1; min-width:140px; display:flex; align-items:center; justify-content:center;
+                <label id="excel-drop" title="클릭하거나 파일을 여기로 끌어다 놓으세요" style="flex:1; min-width:140px; display:flex; align-items:center; justify-content:center;
                     gap:6px; padding:8px 16px; border-radius:8px; background:var(--primary-light);
                     color:var(--primary); font-size:13px; font-weight:800; cursor:pointer; border:none;">
                     📤 파일 업로드
@@ -886,7 +886,7 @@
         <div class="input-wrap">
             <label>참여 PIN (숫자 4자리)</label>
             <input type="tel" inputmode="numeric" maxlength="4" id="student-pin" placeholder="0000"
-                style="text-align:center; font-size:28px; letter-spacing:12px; font-weight:800; padding:14px 10px;">
+                style="width:100%; max-width:100%; text-align:center; font-size:28px; letter-spacing:12px; text-indent:12px; font-weight:800; padding:14px 10px;">
         </div>
         <button class="btn btn-accent" data-action="pinJoin">다음 →</button>
 
@@ -1353,12 +1353,40 @@ async function teacherLogin() {
         classData = snap.data();
         classStudents = normalizeStudents(classData.students || []);
         document.getElementById('login-password').value = '';
+        saveTeacherSession();
         loadDashboard();
         showScreen('screen-teacher-dashboard');
     } catch (e) { alert("오류: " + e.message); }
 }
 
+// ─── 교사 로그인 상태 유지 (이 탭 안에서만) ────────────────
+// 휴대폰에서 파일 선택 창을 다녀오면 브라우저가 페이지를 새로 불러오는 경우가 있어,
+// 같은 탭이면 대시보드로 되돌아오게 한다. 탭을 닫으면 사라진다.
+function saveTeacherSession() {
+    try { sessionStorage.setItem('teacherSession', JSON.stringify({ cls: currentClass, createdAt: classData && classData.createdAt })); } catch (e) {}
+}
+function clearTeacherSession() {
+    try { sessionStorage.removeItem('teacherSession'); } catch (e) {}
+}
+async function restoreTeacherSession() {
+    let sess = null;
+    try { sess = JSON.parse(sessionStorage.getItem('teacherSession') || 'null'); } catch (e) {}
+    if (!sess || !sess.cls) return false;
+    try {
+        await ensureAuth();
+        const snap = await getDoc(doc(db, "classes", sess.cls));   // 관리자가 아니면 규칙이 거부
+        if (!snap.exists() || snap.data().createdAt !== sess.createdAt) { clearTeacherSession(); return false; }
+        currentClass = sess.cls;
+        classData = snap.data();
+        classStudents = normalizeStudents(classData.students || []);
+        loadDashboard();
+        showScreen('screen-teacher-dashboard');
+        return true;
+    } catch (e) { clearTeacherSession(); return false; }
+}
+
 async function teacherLogout() {
+    clearTeacherSession();
     // 이 기기의 관리자 등록 해제 (다음에 다시 비밀번호로 로그인)
     if (currentClass && uid()) {
         try { await deleteDoc(doc(db, "classes", currentClass, "admins", uid())); } catch (e) {}
@@ -1561,8 +1589,29 @@ function downloadTemplate() {
 function setupExcelUpload() {
     const input = document.getElementById('excel-upload');
     if (!input) return;
-    input.addEventListener('change', async (e) => {
-        const file = e.target.files[0];
+    input.addEventListener('change', (e) => handleRosterFile(e.target.files[0], input));
+
+    // 파일을 끌어다 놓아도 업로드되게 (브라우저가 파일을 열어 화면이 바뀌는 것 방지)
+    const drop = document.getElementById('excel-drop');
+    if (drop) {
+        ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, (e) => {
+            e.preventDefault(); e.stopPropagation(); drop.style.outline = '2px dashed var(--primary)';
+        }));
+        ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, (e) => {
+            e.preventDefault(); e.stopPropagation(); drop.style.outline = '';
+        }));
+        drop.addEventListener('drop', (e) => {
+            const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+            if (f) handleRosterFile(f, input);
+        });
+    }
+}
+
+// 페이지 어디에 파일을 떨어뜨려도 브라우저가 그 파일을 열지 않도록 막기
+window.addEventListener('dragover', (e) => { e.preventDefault(); });
+window.addEventListener('drop', (e) => { e.preventDefault(); });
+
+async function handleRosterFile(file, input) {
         if (!file) return;
         const status = document.getElementById('upload-status');
         status.textContent = '파일을 읽는 중...';
@@ -1570,7 +1619,13 @@ function setupExcelUpload() {
 
         try {
             let parsed = [];
-            if (file.name.endsWith('.csv')) {
+            if (!/\.(csv|xlsx|xls)$/i.test(file.name)) {
+                status.textContent = '⚠️ 엑셀(.xlsx, .xls) 또는 .csv 파일만 올릴 수 있어요.';
+                status.style.color = 'var(--danger)';
+                input.value = '';
+                return;
+            }
+            if (/\.csv$/i.test(file.name)) {
                 parsed = await parseCSV(file);
             } else {
                 parsed = await parseXLSX(file);
@@ -1601,7 +1656,6 @@ function setupExcelUpload() {
             status.style.color = 'var(--danger)';
         }
         input.value = ''; // 재업로드 허용
-    });
 }
 
 // CSV 파싱
@@ -3547,7 +3601,9 @@ async function applyQueryParams() {
         alert("QR코드 확인 중 오류가 났어요. 잠시 후 다시 찍어 주세요.");
     }
 }
-applyQueryParams();
+// 시작: QR 입장 주소가 아니면, 이 탭에서 로그인했던 교사 화면 복원
+if (/[?&](t|class)=/.test(window.location.search)) applyQueryParams();
+else restoreTeacherSession();
 
 // ─── 이스터에그 ──────────────────────────────────────────
 let clickCount = 0, clickTimer;
