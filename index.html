@@ -707,8 +707,8 @@
             <div>
                 <div style="font-size:13px; font-weight:800; color:#C04A1A;">학생별 QR코드 인쇄 배부</div>
                 <div style="font-size:12px; color:#A85830; margin-top:2px; line-height:1.5;">
-                    학생 이름이 담긴 개인 QR코드를 출력해 나눠주세요.<br>
-                    스마트폰으로 찍으면 <strong>설문에 바로 연결</strong>됩니다. →
+                    학생마다 다른 개인 QR코드를 출력해 나눠주세요.<br>
+                    찍으면 PIN 없이 <strong>본인 설문으로 바로 연결</strong>됩니다. →
                 </div>
             </div>
         </div>
@@ -837,8 +837,9 @@
                 <div style="font-size:40px; margin-bottom:8px;">🔲</div>
                 <div style="font-size:18px; font-weight:800; margin-bottom:6px;">학생별 QR코드 인쇄 배부</div>
                 <div style="font-size:13px; opacity:.9; line-height:1.6;">
-                    학생 이름이 담긴 개인 QR코드를 출력해서 나눠주세요.<br>
-                    스마트폰 카메라로 찍으면 <strong>설문 화면에 이름이 자동 입력</strong>됩니다.
+                    학생마다 추측할 수 없는 개인 코드가 담긴 QR을 출력해서 나눠주세요.<br>
+                    스마트폰 카메라로 찍으면 PIN 없이 <strong>본인 설문이 바로 열립니다</strong>.<br>
+                    <span style="font-size:12px;">QR 카드는 본인만 사용하도록 지도해 주세요.</span>
                 </div>
             </div>
             <div id="qr-url-info" class="alert alert-warn" style="word-break:break-all; font-size:12px; display:none;"></div>
@@ -847,6 +848,9 @@
                 <button class="btn btn-secondary btn-sm" data-action="generateQR" style="flex:1; min-width:140px; font-size:14px; padding:12px;">🔄 QR 생성/새로고침</button>
             </div>
             <div id="qr-grid"></div>
+            <div class="divider"></div>
+            <button class="btn btn-danger btn-sm" data-action="reissueQR" style="margin-bottom:6px;">♻️ QR 전체 새로 발급</button>
+            <div style="font-size:11px; color:var(--muted); line-height:1.6;">QR 카드를 잃어버렸거나 사진이 퍼졌을 때 사용하세요. 이전에 인쇄한 QR은 모두 쓸 수 없게 됩니다.</div>
         </div>
     </div>
 
@@ -1152,6 +1156,37 @@ function saveStudents() {
         students: classStudents,
         studentNames: classStudents.map(s => s.name)
     });
+}
+
+// ─── 개인 QR 코드 (추측할 수 없는 학생별 비밀 코드) ────────
+// QR 주소에는 이름 대신 무작위 코드만 담는다: ?t=코드
+function randToken(len = 20) {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+    const buf = new Uint32Array(len);
+    crypto.getRandomValues(buf);
+    let out = '';
+    for (let i = 0; i < len; i++) out += chars[buf[i] % chars.length];
+    return out;
+}
+// 명단 학생마다 개인 코드가 있는지 확인하고, 없으면 발급 → { 이름: 코드 }
+async function ensureQrTokens(students) {
+    const map = {};
+    const snap = await getDocs(collection(db, "classes", currentClass, "qr"));
+    snap.forEach(d => { if (d.data() && d.data().token) map[d.id] = d.data().token; });
+    const missing = students.filter(s => !map[s.name]);
+    // 보안 규칙의 문서 조회 한도(요청당 20회) 때문에 5명씩 나눠서 기록
+    for (let i = 0; i < missing.length; i += 5) {
+        const batch = writeBatch(db);
+        const now = new Date().toISOString();
+        missing.slice(i, i + 5).forEach(s => {
+            const token = randToken();
+            batch.set(doc(db, "classes", currentClass, "qr", s.name), { token });
+            batch.set(doc(db, "qrTokens", token), { classId: currentClass, name: s.name, createdAt: now });
+            map[s.name] = token;
+        });
+        await batch.commit();
+    }
+    return map;
 }
 
 // 4자리 PIN 발급 (중복 회피)
@@ -1638,6 +1673,15 @@ async function purgeClassCompletely(id) {
             for (const d of ss.docs) { try { await deleteDoc(d.ref); } catch (e) {} }
         } catch (e) {}
     }
+    // 개인 QR 코드 정리
+    try {
+        const qs = await getDocs(collection(db, "classes", id, "qr"));
+        for (const d of qs.docs) {
+            const tk = (d.data() || {}).token;
+            if (tk) { try { await deleteDoc(doc(db, "qrTokens", tk)); } catch (e) {} }
+            try { await deleteDoc(d.ref); } catch (e) {}
+        }
+    } catch (e) {}
     let adminDocs = [];
     try { adminDocs = (await getDocs(collection(db, "classes", id, "admins"))).docs; } catch (e) {}
     for (const d of adminDocs) { if (d.id !== uid()) { try { await deleteDoc(d.ref); } catch (e) {} } }
@@ -2445,6 +2489,8 @@ async function studentJoin() {
         if (!r.exists) return alert("존재하지 않는 반입니다. 반 코드를 다시 확인해주세요.");
         if (r.closed) return alert("현재 설문이 열려 있지 않습니다. 선생님께 문의해 주세요.");
         const data = r.data;
+        if (data.entryMode === 'pin')
+            return alert("이 반은 PIN 번호나 개인 QR코드로 참여해요.\n선생님께 PIN 번호를 여쭤보세요.");
         if (!data.surveyOpen) return alert("현재 설문이 열려 있지 않습니다. 선생님께 문의해 주세요.");
         // ★ 명단 대조 — 명단에 없는 이름은 입장 불가
         const matched = findStudentByName(normalizeStudents(data.students || []), name);
@@ -2711,6 +2757,7 @@ document.addEventListener('click', async (e) => {
             case 'downloadTemplate': downloadTemplate(); break;
             case 'generateQR':      await generateQR(); break;
             case 'printAllQR':      printAllQR(); break;
+            case 'reissueQR':       await reissueQR(); break;
             case 'downloadPDF':     await downloadPDF(); break;
             case 'changePassword':   await changePassword(); break;
             case 'deleteClass':      await deleteClass(); break;
@@ -3254,13 +3301,21 @@ async function generateQR() {
     // 번호순 정렬
     const sorted = [...qrStudents].sort((a, b) => (a.no || 0) - (b.no || 0));
 
+    // 학생별 개인 코드 확인·발급
+    let tokens;
+    try {
+        tokens = await ensureQrTokens(sorted);
+    } catch (e) {
+        grid.innerHTML = '<div class="alert alert-danger">개인 QR 코드 발급 오류: ' + escAttr(e.message) + '</div>';
+        return;
+    }
+
     grid.innerHTML = '<div class="qr-grid" id="print-qr-area"></div>';
     const container = document.getElementById('print-qr-area');
 
     sorted.forEach(student => {
-        // QR에 담을 데이터: 현재 페이지 URL + 쿼리스트링 (카메라 앱에서 바로 열림)
-        const qrData = pageUrl + '?class=' + encodeURIComponent(currentClass) +
-                       '&name=' + encodeURIComponent(student.name);
+        // QR에 담을 데이터: 페이지 주소 + 학생 개인 코드 (이름·반 이름은 담지 않음)
+        const qrData = pageUrl + '?t=' + encodeURIComponent(tokens[student.name] || '');
 
         // ID 충돌 방지: 번호+이름 조합으로 고유 ID 생성
         const safeId = 'qr-card-' + student.no + '-' + student.name.replace(/[^a-zA-Z0-9가-힣]/g, '_');
@@ -3269,10 +3324,10 @@ async function generateQR() {
         card.className = 'qr-card';
         const qrDivId = 'qrdiv-' + safeId;
         card.innerHTML =
-            '<div class="qr-no">' + student.no + '번</div>' +
-            '<div class="qr-name">' + student.name + '</div>' +
+            '<div class="qr-no">' + escAttr(student.no) + '번</div>' +
+            '<div class="qr-name">' + escAttr(student.name) + '</div>' +
             '<div id="' + qrDivId + '"></div>' +
-            '<div class="qr-class">' + currentClass + '</div>';
+            '<div class="qr-class">' + escAttr(currentClass) + '</div>';
         container.appendChild(card);
 
         // QR 생성 (DOM에 추가된 후 즉시 실행)
@@ -3288,6 +3343,21 @@ async function generateQR() {
             });
         }
     });
+}
+
+// QR 전체 새로 발급 — 기존 개인 코드를 모두 무효화
+async function reissueQR() {
+    if (!confirm("모든 학생의 QR코드를 새로 발급할까요?\n\n이전에 인쇄해 나눠 준 QR코드는 더 이상 쓸 수 없습니다.")) return;
+    try {
+        const qs = await getDocs(collection(db, "classes", currentClass, "qr"));
+        for (const d of qs.docs) {
+            const tk = (d.data() || {}).token;
+            if (tk) { try { await deleteDoc(doc(db, "qrTokens", tk)); } catch (e) {} }
+            await deleteDoc(d.ref);
+        }
+        await generateQR();
+        alert("새 QR코드가 발급되었습니다. 다시 인쇄해서 나눠 주세요.");
+    } catch (e) { alert("QR 새로 발급 오류: " + e.message); }
 }
 
 function printAllQR() {
@@ -3386,53 +3456,48 @@ function printAllQR() {
     win.document.close();
 }
 
-// ─── URL 쿼리스트링으로 학생 자동 입장 ─────────────────
-// QR코드 스캔 시 ?class=반코드&name=이름 파라미터를 읽어
-// 자동으로 설문 참여 화면까지 진행
+// ─── 개인 QR 코드로 학생 자동 입장 ─────────────────────
+// QR 주소 ?t=개인코드 → 코드에 연결된 반·학생을 찾아 바로 설문 시작
 async function applyQueryParams() {
     const params = new URLSearchParams(window.location.search);
-    const cls  = params.get('class');
-    const name = params.get('name');
-    if (!cls || !name) return; // 파라미터 없으면 일반 홈 화면 유지
+    const t = params.get('t');
+    const legacyCls = params.get('class');
+    if (!t && !legacyCls) return; // 파라미터 없으면 일반 홈 화면 유지
 
-    // 학생 로그인 화면으로 이동 후 반 코드 입력란에 값 채우기 (실패 시 수동 참여용)
+    // 주소창에서 코드 지우기 (새로고침·공유 시 재사용 방지)
+    try { history.replaceState(null, '', window.location.pathname); } catch (e) {}
     showScreen('screen-student-login');
-    document.getElementById('student-class-code').value = cls;
-    document.getElementById('student-name').value = name;
-    const legacyBox = document.getElementById('legacy-join');
-    if (legacyBox) legacyBox.style.display = 'block';
 
-    // Firebase가 준비될 때까지 잠깐 대기 후 자동 참여 시도
-    // (모듈 스크립트 defer 실행이므로 Firebase는 이미 초기화 완료)
+    if (!t) {
+        // 예전 방식 QR(?class=&name=)은 더 이상 자동 입장하지 않음
+        alert("예전 방식의 QR코드예요.\n선생님께 새 QR코드를 받거나, PIN 번호로 참여해 주세요.");
+        return;
+    }
     try {
         await ensureAuth();
-        const r = await readClassForStudent(cls);
-        if (!r.exists) {
-            alert("존재하지 않는 반입니다. 반 코드를 확인해 주세요.");
+        const ts = await getDoc(doc(db, "qrTokens", t));
+        if (!ts.exists()) {
+            alert("사용할 수 없는 QR코드예요.\n선생님께 새 QR코드를 받아 주세요.");
             return;
         }
-        if (r.closed) return; // 설문이 아직 열리지 않음 — 입력만 채운 채 대기
-        const data = r.data;
-        if (!data.surveyOpen) {
-            // 설문이 아직 열리지 않은 경우 — 입력만 채운 채 대기
+        const { classId, name } = ts.data();
+        const r = await readClassForStudent(classId);
+        if (!r.exists) { alert("반 정보를 찾을 수 없어요. 선생님께 문의해 주세요."); return; }
+        if (r.closed || !r.data.surveyOpen) {
+            alert("아직 설문이 열리지 않았어요.\n선생님께서 시작하시면 QR코드를 다시 찍어 주세요.");
             return;
         }
-        // ★ 명단 대조 — QR이 오래되어 명단에서 빠진 이름이면 입장 불가
-        const matched = findStudentByName(normalizeStudents(data.students || []), name);
-        if (!matched) {
-            alert("명단에 없는 이름입니다.\n선생님께 확인해 주세요.");
-            return;
-        }
-        if (await alreadySubmitted(cls, matched.name)) {
-            alert("이미 설문에 참여했습니다.");
+        const matched = findStudentByName(normalizeStudents(r.data.students || []), name);
+        if (!matched) { alert("명단에 없는 학생의 QR코드예요.\n선생님께 확인해 주세요."); return; }
+        if (await alreadySubmitted(classId, matched.name)) {
+            alert("이미 설문에 참여했어요.\n다시 해야 한다면 선생님께 말씀드려 주세요.");
             showScreen('screen-home');
             return;
         }
-        // 모든 조건 통과 → 자동으로 설문 시작
-        startSurvey(cls, matched.name, data);
+        startSurvey(classId, matched.name, r.data);
     } catch (e) {
-        // Firebase 오류 시 그냥 입력 채운 화면에서 대기 (수동으로 버튼 누르면 됨)
-        console.warn('QR 자동입장 오류:', e.message);
+        console.warn('QR 입장 오류:', e.message);
+        alert("QR코드 확인 중 오류가 났어요. 잠시 후 다시 찍어 주세요.");
     }
 }
 applyQueryParams();
